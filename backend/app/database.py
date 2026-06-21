@@ -4,7 +4,7 @@ from sqlmodel import SQLModel
 
 from app.core.config import settings
 
-engine = create_async_engine(settings.DATABASE_URL, echo=True)
+engine = create_async_engine(settings.DATABASE_URL)
 
 AsyncSessionLocal = sessionmaker(
     engine,
