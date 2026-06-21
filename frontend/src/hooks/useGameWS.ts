@@ -74,6 +74,9 @@ export function useGameWS(roomCode: string | null, playerId: string | null) {
   return { send, reconnect }
 }
 
+// Module-level so rapid trick_complete events cancel the previous timer
+let trickClearTimer: ReturnType<typeof setTimeout> | null = null
+
 function handleMessage(msg: WsMessage) {
   const store = useGameStore.getState()
 
@@ -91,7 +94,7 @@ function handleMessage(msg: WsMessage) {
         bids?: Record<string, number>
         current_trick?: Array<{ player_id: string; card: string }>
       }
-      store.clearRoundResult()
+      // Do NOT clearRoundResult here — let the user dismiss the overlay themselves
       store.setRoundHand(p.hand)
       if (p.trump_suit) store.setTrumpSuit(p.trump_suit as Suit)
       // On reconnect the server sends current bids/trick so state stays consistent
@@ -127,7 +130,13 @@ function handleMessage(msg: WsMessage) {
 
     case 'trick_complete': {
       const p = msg.payload as { winner_id: string }
-      store.completeTrick(p.winner_id)
+      // Highlight the winning card for 1.5 s before clearing the trick
+      if (trickClearTimer) clearTimeout(trickClearTimer)
+      store.setTrickWinner(p.winner_id)
+      trickClearTimer = setTimeout(() => {
+        useGameStore.getState().completeTrick(p.winner_id)
+        trickClearTimer = null
+      }, 1500)
       break
     }
 

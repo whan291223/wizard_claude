@@ -5,6 +5,7 @@ import { useGameWS } from '../hooks/useGameWS'
 import Hand from '../components/Hand'
 import TrickArea from '../components/TrickArea'
 import Scoreboard from '../components/Scoreboard'
+import PlayerStrip from '../components/PlayerStrip'
 import BidModal from '../components/BidModal'
 import TrumpChooser from '../components/TrumpChooser'
 import RoundResult from '../components/RoundResult'
@@ -154,8 +155,6 @@ function GameView({
     gameState.trump_suit === 'pending' &&
     gameState.players[gameState.dealer_seat]?.id === playerId
 
-  const currentPlayerName =
-    gameState.players[gameState.current_player_seat]?.nickname ?? '?'
   const trumpDisplay =
     SUIT_DISPLAY[gameState.trump_suit ?? 'none'] ?? gameState.trump_suit ?? '—'
 
@@ -179,27 +178,34 @@ function GameView({
         />
       </div>
 
-      {/* Phase / turn indicator */}
-      <div className="px-4 py-2 text-center min-h-[32px]">
-        {myTurn ? (
-          <span className="text-green-400 text-sm font-medium">
-            Your turn{isBidding ? ' — place your bid' : ''}
-          </span>
-        ) : (
-          <span className="text-gray-500 text-sm">
-            Waiting for {currentPlayerName}
-            {isBidding ? ' to bid' : ' to play'}
-          </span>
-        )}
-      </div>
+      {/* Always-visible player strip */}
+      <PlayerStrip
+        players={gameState.players}
+        currentPlayerSeat={gameState.current_player_seat}
+        playerId={playerId}
+        bids={roundState.bids}
+        tricksWon={roundState.tricks_won}
+        phase={gameState.current_phase}
+      />
 
-      {/* Trick area */}
+      {/* Center area */}
       <div className="flex-1 flex items-center justify-center p-4 min-h-0">
-        <TrickArea
-          trick={roundState.current_trick}
-          players={gameState.players}
-          lastWinner={roundState.last_trick_winner}
-        />
+        {isBidding ? (
+          <div className="text-center space-y-2">
+            <p className="text-gray-400 text-sm">
+              {myBidPending && myTurn
+                ? 'Place your bid'
+                : 'Waiting for all players to bid...'}
+            </p>
+          </div>
+        ) : (
+          <TrickArea
+            trick={roundState.current_trick}
+            players={gameState.players}
+            lastWinner={roundState.last_trick_winner}
+            trickWinnerId={roundState.trick_winner_id}
+          />
+        )}
       </div>
 
       {/* Player hand */}

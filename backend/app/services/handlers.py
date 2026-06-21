@@ -235,12 +235,14 @@ async def handle_submit_bid(room_code: str, player_id: str, payload: dict):
         "payload": {"player_id": player_id, "bid": bid},
     })
 
+    # Always broadcast game_state so all clients see the updated current_player_seat
+    await _broadcast_game_state(room_code)
+
     if all_bids:
         await room_manager.broadcast(room_code, {
             "type": "all_bids_in",
             "payload": {"bids": gs.bids},
         })
-        await _broadcast_game_state(room_code)
 
 
 # ---------------------------------------------------------------------------
@@ -281,6 +283,7 @@ async def handle_play_card(room_code: str, player_id: str, payload: dict):
             if game:
                 game.current_player_seat = gs.current_player_seat
                 await session.commit()
+        await _broadcast_game_state(room_code)
         return
 
     # --- Trick complete ---

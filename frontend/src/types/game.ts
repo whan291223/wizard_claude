@@ -33,6 +33,7 @@ export interface RoundState {
   tricks_won: Record<string, number>
   current_trick: Array<{ player_id: string; card: string }>
   last_trick_winner: string | null
+  trick_winner_id: string | null  // set during the 1.5 s highlight window
 }
 
 // WebSocket message shapes

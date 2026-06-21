@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useGameStore } from '../store/gameStore'
 import { useGameWS } from '../hooks/useGameWS'
@@ -12,6 +12,15 @@ export default function Lobby() {
   const wsError = useGameStore((s) => s.wsError)
   const setWsError = useGameStore((s) => s.setWsError)
   const [fetchError, setFetchError] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  const copyCode = useCallback(() => {
+    if (!gameState) return
+    navigator.clipboard.writeText(gameState.room_code).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }, [gameState])
   const { send } = useGameWS(roomCode ?? null, playerId)
 
   useEffect(() => {
@@ -75,12 +84,30 @@ export default function Lobby() {
       <div className="w-full max-w-sm space-y-6">
         <div className="text-center space-y-1">
           <h1 className="text-3xl font-bold text-purple-400">Lobby</h1>
-          <p className="text-gray-400 text-sm">
-            Room code:{' '}
-            <span className="text-white font-mono font-bold tracking-widest">
+          <div className="flex items-center justify-center gap-2">
+            <span className="text-white font-mono font-bold tracking-widest text-2xl">
               {gameState.room_code}
             </span>
-          </p>
+            <button
+              onClick={copyCode}
+              title="Copy room code"
+              className="text-gray-500 hover:text-white active:text-green-400 transition-colors p-1 rounded"
+            >
+              {copied ? (
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                </svg>
+              )}
+            </button>
+          </div>
+          {copied && (
+            <p className="text-green-400 text-xs">Copied to clipboard!</p>
+          )}
         </div>
 
         <div className="bg-gray-800 rounded-xl p-4 space-y-2">

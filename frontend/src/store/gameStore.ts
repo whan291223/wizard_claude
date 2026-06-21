@@ -37,6 +37,7 @@ interface GameStore {
   revealBids: (bids: Record<string, number>) => void
   recordCardPlayed: (playerId: string, card: string) => void
   removeCardFromHand: (card: string) => void
+  setTrickWinner: (winnerId: string) => void
   completeTrick: (winnerId: string) => void
   setRoundResult: (result: RoundResult) => void
   clearRoundResult: () => void
@@ -51,6 +52,7 @@ const initialRoundState: RoundState = {
   tricks_won: {},
   current_trick: [],
   last_trick_winner: null,
+  trick_winner_id: null,
 }
 
 export const useGameStore = create<GameStore>((set) => ({
@@ -121,6 +123,13 @@ export const useGameStore = create<GameStore>((set) => ({
         : s.roundState,
     })),
 
+  setTrickWinner: (winnerId) =>
+    set((s) => ({
+      roundState: s.roundState
+        ? { ...s.roundState, trick_winner_id: winnerId }
+        : s.roundState,
+    })),
+
   completeTrick: (winnerId) =>
     set((s) => {
       if (!s.roundState) return {}
@@ -131,6 +140,7 @@ export const useGameStore = create<GameStore>((set) => ({
           ...s.roundState,
           tricks_won: updated,
           current_trick: [],
+          trick_winner_id: null,
           last_trick_winner: winnerId,
         },
       }
