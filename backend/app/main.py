@@ -6,11 +6,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.database import create_db_and_tables
 from app.routers import games, ws
+from app.services.handlers import register_all
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await create_db_and_tables()
+    register_all()
     yield
 
 

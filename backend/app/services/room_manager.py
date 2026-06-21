@@ -1,12 +1,20 @@
 from collections import defaultdict
+from typing import TYPE_CHECKING
 
 from fastapi import WebSocket
+
+if TYPE_CHECKING:
+    from app.services.game_engine import GameState
 
 
 class RoomManager:
     def __init__(self):
         self.rooms: dict[str, dict[str, WebSocket]] = defaultdict(dict)
         self._message_handlers: dict[str, callable] = {}
+        self.game_states: dict[str, "GameState"] = {}
+
+    def register(self, msg_type: str, handler: callable) -> None:
+        self._message_handlers[msg_type] = handler
 
     async def connect(self, room_code: str, player_id: str, websocket: WebSocket):
         await websocket.accept()

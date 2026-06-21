@@ -69,6 +69,25 @@ async def websocket_endpoint(
     if state:
         await room_manager.broadcast(room_code, {"type": "game_state", "payload": state})
 
+    # If game is already in progress, send this player their current hand.
+    # This covers the Lobby→Game page transition where the old WS closes before
+    # the new one opens, so round_started from start_game may have been missed.
+    gs = room_manager.game_states.get(room_code)
+    if gs and state and state.get("status") == "in_progress":
+        hand = gs.hands.get(str(player_id), [])
+        await room_manager.send_to_player(room_code, str(player_id), {
+            "type": "round_started",
+            "payload": {
+                "round_number": state["current_round"],
+                "hand": hand,
+                "trump_card": state["trump_card"],
+                "trump_suit": state["trump_suit"],
+                "dealer_seat": state["dealer_seat"],
+                "first_bidder_seat": gs.current_player_seat,
+                "total_rounds": state["total_rounds"],
+            },
+        })
+
     try:
         while True:
             data = await websocket.receive_json()

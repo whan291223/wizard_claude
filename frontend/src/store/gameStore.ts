@@ -10,10 +10,12 @@ interface GameStore {
   // Server state
   gameState: GameState | null
   roundState: RoundState | null
+  wsError: string | null
 
   // Actions
   setIdentity: (playerId: string, nickname: string, roomCode: string) => void
   setGameState: (state: GameState) => void
+  setWsError: (msg: string | null) => void
   setRoundHand: (hand: string[]) => void
   setTrumpSuit: (suit: Suit) => void
   recordBid: (playerId: string, bid: number) => void
@@ -38,11 +40,14 @@ export const useGameStore = create<GameStore>((set) => ({
   roomCode: null,
   gameState: null,
   roundState: null,
+  wsError: null,
 
   setIdentity: (playerId, nickname, roomCode) =>
     set({ playerId, nickname, roomCode }),
 
   setGameState: (gameState) => set({ gameState }),
+
+  setWsError: (wsError) => set({ wsError }),
 
   setRoundHand: (hand) =>
     set((s) => ({

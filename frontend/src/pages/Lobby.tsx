@@ -6,7 +6,7 @@ import { useGameWS } from '../hooks/useGameWS'
 export default function Lobby() {
   const { roomCode } = useParams<{ roomCode: string }>()
   const navigate = useNavigate()
-  const { playerId, gameState, setGameState } = useGameStore()
+  const { playerId, gameState, setGameState, wsError, setWsError } = useGameStore()
   const { send } = useGameWS(roomCode ?? null, playerId)
 
   useEffect(() => {
@@ -35,6 +35,7 @@ export default function Lobby() {
   const canStart = gameState.num_players >= 3
 
   function handleStart() {
+    setWsError(null)
     send('start_game', {})
   }
 
@@ -90,6 +91,12 @@ export default function Lobby() {
         {!isHost && (
           <p className="text-gray-500 text-sm text-center">
             Waiting for the host to start...
+          </p>
+        )}
+
+        {wsError && (
+          <p className="text-red-400 text-sm text-center bg-red-900/20 rounded-lg px-3 py-2">
+            {wsError}
           </p>
         )}
       </div>

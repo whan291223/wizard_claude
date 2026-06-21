@@ -43,8 +43,17 @@ function handleMessage(msg: WsMessage, store: ReturnType<typeof useGameStore.get
       break
     }
     case 'round_started': {
-      const p = msg.payload as { hand: string[] }
+      const p = msg.payload as {
+        hand: string[]
+        trump_suit: string
+        trump_card: string | null
+        round_number: number
+      }
       store.setRoundHand(p.hand)
+      // Keep game state trump in sync with what the server decided
+      if (p.trump_suit) {
+        store.setTrumpSuit(p.trump_suit as Parameters<typeof store.setTrumpSuit>[0])
+      }
       break
     }
     case 'bid_submitted': {
@@ -63,6 +72,12 @@ function handleMessage(msg: WsMessage, store: ReturnType<typeof useGameStore.get
     case 'trick_complete': {
       const p = msg.payload as { winner_id: string }
       store.completeTrick(p.winner_id)
+      break
+    }
+    case 'error': {
+      const p = msg.payload as { message: string }
+      console.error('[WS error]', p.message)
+      store.setWsError(p.message)
       break
     }
     case 'round_complete':
