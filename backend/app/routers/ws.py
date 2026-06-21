@@ -1,3 +1,4 @@
+import traceback
 import uuid
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
@@ -74,8 +75,9 @@ async def websocket_endpoint(
     # the new one opens, so round_started from start_game may have been missed.
     gs = room_manager.game_states.get(room_code)
     if gs and state and state.get("status") == "in_progress":
-        hand = gs.hands.get(str(player_id), [])
-        await room_manager.send_to_player(room_code, str(player_id), {
+        pid = str(player_id)
+        hand = gs.hands.get(pid, [])
+        await room_manager.send_to_player(room_code, pid, {
             "type": "round_started",
             "payload": {
                 "round_number": state["current_round"],
@@ -85,13 +87,29 @@ async def websocket_endpoint(
                 "dealer_seat": state["dealer_seat"],
                 "first_bidder_seat": gs.current_player_seat,
                 "total_rounds": state["total_rounds"],
+                # Reconnect helpers — restores mid-round state on the client
+                "bids": {k: v for k, v in gs.bids.items()},
+                "current_trick": [
+                    {"player_id": p, "card": c} for p, c in gs.current_trick
+                ],
             },
         })
 
     try:
         while True:
             data = await websocket.receive_json()
-            await room_manager.handle_message(room_code, str(player_id), data)
+            try:
+                await room_manager.handle_message(room_code, str(player_id), data)
+            except Exception as exc:
+                traceback.print_exc()
+                try:
+                    await room_manager.send_to_player(
+                        room_code,
+                        str(player_id),
+                        {"type": "error", "payload": {"message": "Internal server error"}},
+                    )
+                except Exception:
+                    pass
     except WebSocketDisconnect:
         room_manager.disconnect(room_code, str(player_id))
         await _set_connected(player_id, False)

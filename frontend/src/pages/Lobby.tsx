@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useGameStore } from '../store/gameStore'
 import { useGameWS } from '../hooks/useGameWS'
@@ -6,14 +6,23 @@ import { useGameWS } from '../hooks/useGameWS'
 export default function Lobby() {
   const { roomCode } = useParams<{ roomCode: string }>()
   const navigate = useNavigate()
-  const { playerId, gameState, setGameState, wsError, setWsError } = useGameStore()
+  const playerId = useGameStore((s) => s.playerId)
+  const gameState = useGameStore((s) => s.gameState)
+  const setGameState = useGameStore((s) => s.setGameState)
+  const wsError = useGameStore((s) => s.wsError)
+  const setWsError = useGameStore((s) => s.setWsError)
+  const [fetchError, setFetchError] = useState<string | null>(null)
   const { send } = useGameWS(roomCode ?? null, playerId)
 
   useEffect(() => {
     if (!roomCode) return
     fetch(`/api/games/${roomCode}`)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`Server returned ${r.status}`)
+        return r.json()
+      })
       .then(setGameState)
+      .catch((e: Error) => setFetchError(e.message))
   }, [roomCode, setGameState])
 
   useEffect(() => {
@@ -21,6 +30,28 @@ export default function Lobby() {
       navigate(`/game/${roomCode}`)
     }
   }, [gameState?.status, navigate, roomCode])
+
+  // Identity lost (page refresh) — send back to home
+  useEffect(() => {
+    if (!playerId) navigate('/')
+  }, [playerId, navigate])
+
+  if (fetchError) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
+        <div className="text-center space-y-3">
+          <p className="text-red-400 font-medium">Could not load game</p>
+          <p className="text-gray-500 text-sm">{fetchError}</p>
+          <button
+            onClick={() => navigate('/')}
+            className="text-purple-400 underline text-sm"
+          >
+            Go back home
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   if (!gameState) {
     return (

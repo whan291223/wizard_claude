@@ -1,6 +1,15 @@
 import { create } from 'zustand'
 import type { GameState, RoundState, Suit } from '../types/game'
 
+export interface RoundResult {
+  scores: Record<string, number>
+  cumulative: Record<string, number>
+}
+
+export interface GameResult {
+  final_scores: Record<string, number>
+}
+
 interface GameStore {
   // Identity
   playerId: string | null
@@ -11,17 +20,27 @@ interface GameStore {
   gameState: GameState | null
   roundState: RoundState | null
   wsError: string | null
+  wsConnected: boolean
+
+  // End-of-round / end-of-game overlays
+  roundResult: RoundResult | null
+  gameResult: GameResult | null
 
   // Actions
   setIdentity: (playerId: string, nickname: string, roomCode: string) => void
   setGameState: (state: GameState) => void
   setWsError: (msg: string | null) => void
+  setWsConnected: (connected: boolean) => void
   setRoundHand: (hand: string[]) => void
   setTrumpSuit: (suit: Suit) => void
   recordBid: (playerId: string, bid: number) => void
+  revealBids: (bids: Record<string, number>) => void
   recordCardPlayed: (playerId: string, card: string) => void
   removeCardFromHand: (card: string) => void
   completeTrick: (winnerId: string) => void
+  setRoundResult: (result: RoundResult) => void
+  clearRoundResult: () => void
+  setGameResult: (result: GameResult) => void
   resetRound: () => void
   reset: () => void
 }
@@ -41,6 +60,9 @@ export const useGameStore = create<GameStore>((set) => ({
   gameState: null,
   roundState: null,
   wsError: null,
+  wsConnected: false,
+  roundResult: null,
+  gameResult: null,
 
   setIdentity: (playerId, nickname, roomCode) =>
     set({ playerId, nickname, roomCode }),
@@ -48,6 +70,8 @@ export const useGameStore = create<GameStore>((set) => ({
   setGameState: (gameState) => set({ gameState }),
 
   setWsError: (wsError) => set({ wsError }),
+
+  setWsConnected: (wsConnected) => set({ wsConnected }),
 
   setRoundHand: (hand) =>
     set((s) => ({
@@ -73,6 +97,11 @@ export const useGameStore = create<GameStore>((set) => ({
       roundState: s.roundState
         ? { ...s.roundState, bids: { ...s.roundState.bids, [playerId]: bid } }
         : s.roundState,
+    })),
+
+  revealBids: (bids) =>
+    set((s) => ({
+      roundState: s.roundState ? { ...s.roundState, bids } : s.roundState,
     })),
 
   recordCardPlayed: (playerId, card) =>
@@ -107,6 +136,12 @@ export const useGameStore = create<GameStore>((set) => ({
       }
     }),
 
+  setRoundResult: (roundResult) => set({ roundResult }),
+
+  clearRoundResult: () => set({ roundResult: null }),
+
+  setGameResult: (gameResult) => set({ gameResult, roundResult: null }),
+
   resetRound: () =>
     set((s) => ({
       roundState: s.gameState
@@ -118,5 +153,15 @@ export const useGameStore = create<GameStore>((set) => ({
     })),
 
   reset: () =>
-    set({ playerId: null, nickname: null, roomCode: null, gameState: null, roundState: null }),
+    set({
+      playerId: null,
+      nickname: null,
+      roomCode: null,
+      gameState: null,
+      roundState: null,
+      roundResult: null,
+      gameResult: null,
+      wsError: null,
+      wsConnected: false,
+    }),
 }))
