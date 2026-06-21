@@ -20,6 +20,10 @@ dev-dependencies = [
     "httpx>=0.27.0",
 ]
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
 

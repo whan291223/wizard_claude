@@ -49,14 +49,14 @@ class GameState:
         self.player_to_seat[player_id] = seat
         self.tricks_won[player_id] = 0
 
-    def start_round(self, round_number: int, dealer_seat: int):
+    def start_round(self, round_number: int, dealer_seat: int, deck: list[str] | None = None):
         self.current_round = round_number
         self.dealer_seat = dealer_seat
         self.bids = {}
         self.tricks_won = {pid: 0 for pid in self.player_to_seat}
         self.trick_number = 0
 
-        self.deck = shuffle_deck(build_deck())
+        self.deck = deck if deck is not None else shuffle_deck(build_deck())
         player_order = [
             self.seat_to_player[s % self.num_players]
             for s in range(self.num_players)
