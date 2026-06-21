@@ -94,6 +94,11 @@ function handleMessage(msg: WsMessage) {
         bids?: Record<string, number>
         current_trick?: Array<{ player_id: string; card: string }>
       }
+      // Cancel any pending trick-highlight timer so it doesn't fire into the new round
+      if (trickClearTimer) {
+        clearTimeout(trickClearTimer)
+        trickClearTimer = null
+      }
       // Do NOT clearRoundResult here — let the user dismiss the overlay themselves
       store.setRoundHand(p.hand)
       if (p.trump_suit) store.setTrumpSuit(p.trump_suit as Suit)
@@ -144,8 +149,19 @@ function handleMessage(msg: WsMessage) {
       const p = msg.payload as {
         scores: Record<string, number>
         cumulative_scores: Record<string, number>
+        bids: Record<string, number>
+        tricks_won: Record<string, number>
       }
-      store.setRoundResult({ scores: p.scores, cumulative: p.cumulative_scores })
+      // Snapshot current_round NOW — the next game_state for round N+1 will overwrite it
+      // and would make the overlay show "See Final Results" prematurely
+      const snappedRound = store.gameState?.current_round ?? 0
+      store.setRoundResult({
+        round_number: snappedRound,
+        scores: p.scores,
+        cumulative: p.cumulative_scores,
+        bids: p.bids,
+        tricks_won: p.tricks_won,
+      })
       break
     }
 

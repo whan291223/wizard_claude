@@ -5,6 +5,7 @@ interface HandProps {
   cards: string[]
   onPlay: (card: string) => void
   myTurn: boolean
+  playableCards?: Set<string> | null // null = all playable
 }
 
 interface DragState {
@@ -15,12 +16,14 @@ interface DragState {
 
 const PLAY_THRESHOLD = 80 // px upward to trigger play
 
-export default function Hand({ cards, onPlay, myTurn }: HandProps) {
+export default function Hand({ cards, onPlay, myTurn, playableCards = null }: HandProps) {
   const [selected, setSelected] = useState<string | null>(null)
   const [drag, setDrag] = useState<DragState | null>(null)
 
   // Reset selection when cards change (new round or card played)
   const prevCards = cards.join(',')
+
+  const canPlay = (card: string) => !playableCards || playableCards.has(card)
 
   function play(card: string) {
     setSelected(null)
@@ -30,7 +33,7 @@ export default function Hand({ cards, onPlay, myTurn }: HandProps) {
 
   // ── Touch (mobile): drag up to play ──────────────────────────────────────
   function onTouchStart(e: React.TouchEvent, card: string) {
-    if (!myTurn) return
+    if (!myTurn || !canPlay(card)) return
     const y = e.touches[0].clientY
     setSelected(card)
     setDrag({ card, startY: y, currentY: y })
@@ -56,7 +59,7 @@ export default function Hand({ cards, onPlay, myTurn }: HandProps) {
 
   // ── Click (desktop): tap to select, tap again to play ────────────────────
   function onClick(card: string) {
-    if (!myTurn) return
+    if (!myTurn || !canPlay(card)) return
     if (selected === card) {
       play(card)
     } else {
@@ -68,8 +71,8 @@ export default function Hand({ cards, onPlay, myTurn }: HandProps) {
 
   let hint = ''
   if (myTurn) {
-    if (selected) hint = 'Swipe up to play · tap another to change'
-    else hint = 'Tap a card to select'
+    if (selected) hint = 'Swipe up or tap again to play · tap another to change'
+    else hint = 'Tap a playable card to select'
   } else {
     hint = 'Your hand'
   }
@@ -87,6 +90,7 @@ export default function Hand({ cards, onPlay, myTurn }: HandProps) {
           {cards.map((card, i) => {
             const isDragging = drag?.card === card
             const isSelected = selected === card
+            const playable = canPlay(card)
 
             // How far the card has moved upward
             const rawLift = isDragging
@@ -109,6 +113,7 @@ export default function Hand({ cards, onPlay, myTurn }: HandProps) {
                   // Instant tracking while dragging, smooth spring back otherwise
                   transition: isDragging ? 'none' : 'transform 0.15s ease-out',
                   touchAction: myTurn ? 'none' : 'auto',
+                  opacity: !playable ? 0.35 : 1,
                 }}
                 onTouchStart={(e) => onTouchStart(e, card)}
                 onTouchMove={(e) => onTouchMove(e, card)}
@@ -125,7 +130,7 @@ export default function Hand({ cards, onPlay, myTurn }: HandProps) {
                     card={card}
                     size="lg"
                     onClick={() => onClick(card)}
-                    disabled={!myTurn}
+                    disabled={!myTurn || !playable}
                   />
                 </div>
               </div>

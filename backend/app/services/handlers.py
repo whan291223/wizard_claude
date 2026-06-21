@@ -111,7 +111,7 @@ async def handle_start_game(room_code: str, player_id: str, payload: dict):
         game.current_player_seat = gs.current_player_seat
         game.trump_suit = gs.trump_suit
         game.trump_card = gs.trump_card
-        game.current_phase = "choosing_trump" if gs.trump_suit == "pending" else "bidding"
+        game.current_phase = "bidding"
 
         round_record = Round(
             game_id=game.id,
@@ -131,47 +131,6 @@ async def handle_start_game(room_code: str, player_id: str, payload: dict):
             room_code, {"type": "game_state", "payload": _state_payload(game, players)}
         )
         await _send_round_started(room_code, gs, game)
-
-
-# ---------------------------------------------------------------------------
-# choose_trump  (dealer picks suit when a Wizard was flipped)
-# ---------------------------------------------------------------------------
-
-async def handle_choose_trump(room_code: str, player_id: str, payload: dict):
-    gs = room_manager.game_states.get(room_code)
-    if not gs or gs.trump_suit != "pending":
-        return
-
-    async with AsyncSessionLocal() as session:
-        game, players = await _load_game_and_players(session, room_code)
-        if not game:
-            return
-
-        dealer_id = gs.seat_to_player.get(game.dealer_seat)
-        if player_id != dealer_id:
-            await room_manager.send_to_player(
-                room_code, player_id,
-                {"type": "error", "payload": {"message": "Only the dealer chooses trump"}},
-            )
-            return
-
-        suit = payload.get("suit", "")
-        if suit not in ("C", "D", "H", "S"):
-            await room_manager.send_to_player(
-                room_code, player_id,
-                {"type": "error", "payload": {"message": "Invalid suit"}},
-            )
-            return
-
-        gs.trump_suit = suit
-        game.trump_suit = suit
-        game.current_phase = "bidding"
-        await session.commit()
-        await session.refresh(game)
-
-    await room_manager.broadcast(
-        room_code, {"type": "game_state", "payload": _state_payload(game, players)}
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -197,6 +156,19 @@ async def handle_submit_bid(room_code: str, player_id: str, payload: dict):
             {"type": "error", "payload": {"message": "Not your turn to bid"}},
         )
         return
+
+    # Last-bidder rule: total bids must not equal the round number
+    if len(gs.bids) == gs.num_players - 1:
+        current_sum = sum(gs.bids.values())
+        forbidden = gs.current_round - current_sum
+        if 0 <= forbidden <= gs.current_round and bid == forbidden:
+            await room_manager.send_to_player(
+                room_code, player_id,
+                {"type": "error", "payload": {
+                    "message": f"You can't bid {forbidden} — total bids can't equal {gs.current_round}."
+                }},
+            )
+            return
 
     if not gs.submit_bid(player_id, bid):
         await room_manager.send_to_player(
@@ -338,7 +310,12 @@ async def handle_play_card(room_code: str, player_id: str, payload: dict):
 
         await room_manager.broadcast(room_code, {
             "type": "round_complete",
-            "payload": {"scores": scores, "cumulative_scores": cumulative},
+            "payload": {
+                "scores": scores,
+                "cumulative_scores": cumulative,
+                "bids": dict(gs.bids),
+                "tricks_won": dict(gs.tricks_won),
+            },
         })
 
         if gs.current_round >= gs.total_rounds:
@@ -361,7 +338,7 @@ async def handle_play_card(room_code: str, player_id: str, payload: dict):
         game.current_player_seat = gs.current_player_seat
         game.trump_suit = gs.trump_suit
         game.trump_card = gs.trump_card
-        game.current_phase = "choosing_trump" if gs.trump_suit == "pending" else "bidding"
+        game.current_phase = "bidding"
 
         new_round_record = Round(
             game_id=game.id,
@@ -392,6 +369,5 @@ async def handle_play_card(room_code: str, player_id: str, payload: dict):
 def register_all(manager=None):
     m = manager or room_manager
     m.register("start_game", handle_start_game)
-    m.register("choose_trump", handle_choose_trump)
     m.register("submit_bid", handle_submit_bid)
     m.register("play_card", handle_play_card)

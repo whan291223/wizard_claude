@@ -32,7 +32,8 @@ export default function RoundResult({
           <thead>
             <tr className="text-gray-400 text-xs uppercase">
               <th className="text-left py-1">Player</th>
-              <th className="text-right py-1">This round</th>
+              <th className="text-right py-1">Won/Bid</th>
+              <th className="text-right py-1">Score</th>
               <th className="text-right py-1">Total</th>
             </tr>
           </thead>
@@ -40,15 +41,17 @@ export default function RoundResult({
             {players.map((p) => {
               const delta = result.scores[p.id] ?? 0
               const total = result.cumulative[p.id] ?? 0
+              const bid = result.bids[p.id] ?? 0
+              const won = result.tricks_won[p.id] ?? 0
+              const hit = won === bid
               const positive = delta >= 0
               return (
                 <tr key={p.id} className="border-t border-gray-700">
                   <td className="py-2 text-white">{p.nickname}</td>
-                  <td
-                    className={`py-2 text-right font-semibold ${
-                      positive ? 'text-green-400' : 'text-red-400'
-                    }`}
-                  >
+                  <td className={`py-2 text-right font-semibold ${hit ? 'text-green-400' : 'text-red-400'}`}>
+                    {won}/{bid}
+                  </td>
+                  <td className={`py-2 text-right font-semibold ${positive ? 'text-green-400' : 'text-red-400'}`}>
                     {positive ? '+' : ''}{delta}
                   </td>
                   <td className="py-2 text-right font-bold text-purple-400">

@@ -7,10 +7,40 @@ import TrickArea from '../components/TrickArea'
 import Scoreboard from '../components/Scoreboard'
 import PlayerStrip from '../components/PlayerStrip'
 import BidModal from '../components/BidModal'
-import TrumpChooser from '../components/TrumpChooser'
 import RoundResult from '../components/RoundResult'
 import GameOver from '../components/GameOver'
 import type { GameState, RoundState } from '../types/game'
+
+function getPlayableCards(
+  hand: string[],
+  trick: Array<{ player_id: string; card: string }>,
+): Set<string> {
+  if (trick.length === 0) return new Set(hand)
+
+  // Led suit = suit of the first non-Jester card in the trick
+  let ledSuit: string | null = null
+  for (const { card } of trick) {
+    if (!card.startsWith('N') && !card.startsWith('W')) {
+      ledSuit = card[0] // C / D / H / S
+      break
+    }
+  }
+
+  // All Jesters led → no suit constraint
+  if (!ledSuit) return new Set(hand)
+
+  const hasSuit = hand.some(
+    (c) => !c.startsWith('N') && !c.startsWith('W') && c[0] === ledSuit,
+  )
+
+  return new Set(
+    hand.filter((card) => {
+      if (card.startsWith('W') || card.startsWith('N')) return true // always playable
+      if (!hasSuit) return true // void in led suit → play anything
+      return card[0] === ledSuit // must follow suit
+    }),
+  )
+}
 
 const SUIT_DISPLAY: Record<string, string> = {
   C: '♣ Clubs',
@@ -47,9 +77,6 @@ export default function Game() {
   function handleBid(bid: number) {
     send('submit_bid', { bid })
   }
-  function handleChooseTrump(suit: string) {
-    send('choose_trump', { suit })
-  }
   function handleReconnect() {
     setWsError(null)
     reconnect()
@@ -71,7 +98,7 @@ export default function Game() {
             playerId={playerId}
             onPlayCard={handlePlayCard}
             onBid={handleBid}
-            onChooseTrump={handleChooseTrump}
+            suppressModals
           />
         )}
         <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-80 p-4">
@@ -112,14 +139,14 @@ export default function Game() {
         playerId={playerId}
         onPlayCard={handlePlayCard}
         onBid={handleBid}
-        onChooseTrump={handleChooseTrump}
+        suppressModals={roundResult !== null}
       />
 
       {roundResult && (
         <RoundResult
           result={roundResult}
           players={gameState.players}
-          roundNumber={gameState.current_round}
+          roundNumber={roundResult.round_number}
           totalRounds={gameState.total_rounds}
           onContinue={clearRoundResult}
         />
@@ -136,7 +163,7 @@ interface GameViewProps {
   playerId: string | null
   onPlayCard: (card: string) => void
   onBid: (bid: number) => void
-  onChooseTrump: (suit: string) => void
+  suppressModals?: boolean
 }
 
 function GameView({
@@ -145,15 +172,26 @@ function GameView({
   playerId,
   onPlayCard,
   onBid,
-  onChooseTrump,
+  suppressModals = false,
 }: GameViewProps) {
   const myTurn = gameState.players[gameState.current_player_seat]?.id === playerId
   const isBidding = gameState.current_phase === 'bidding'
   const isPlaying = gameState.current_phase === 'playing'
   const myBidPending = isBidding && roundState.bids[playerId ?? ''] == null
-  const isChoosingTrump =
-    gameState.trump_suit === 'pending' &&
-    gameState.players[gameState.dealer_seat]?.id === playerId
+
+  const playableCards =
+    myTurn && isPlaying
+      ? getPlayableCards(roundState.hand, roundState.current_trick)
+      : null
+
+  // Last-bidder rule: when all others have bid, compute the one forbidden value
+  const submittedBids = Object.values(roundState.bids).filter((v) => v !== null) as number[]
+  const isLastBidder = myBidPending && submittedBids.length === gameState.num_players - 1
+  const forbiddenBid = (() => {
+    if (!isLastBidder) return null
+    const f = gameState.current_round - submittedBids.reduce((a, b) => a + b, 0)
+    return f >= 0 && f <= gameState.current_round ? f : null
+  })()
 
   const trumpDisplay =
     SUIT_DISPLAY[gameState.trump_suit ?? 'none'] ?? gameState.trump_suit ?? '—'
@@ -188,6 +226,15 @@ function GameView({
         phase={gameState.current_phase}
       />
 
+      {/* "Your turn" banner */}
+      {myTurn && isPlaying && (
+        <div className="flex justify-center px-4 pt-2">
+          <span className="animate-pulse bg-green-500/20 border border-green-500/40 text-green-400 text-xs font-semibold px-4 py-1.5 rounded-full tracking-wide">
+            Your turn to play a card
+          </span>
+        </div>
+      )}
+
       {/* Center area */}
       <div className="flex-1 flex items-center justify-center p-4 min-h-0">
         {isBidding ? (
@@ -204,6 +251,9 @@ function GameView({
             players={gameState.players}
             lastWinner={roundState.last_trick_winner}
             trickWinnerId={roundState.trick_winner_id}
+            currentPlayerName={
+              gameState.players[gameState.current_player_seat]?.nickname ?? null
+            }
           />
         )}
       </div>
@@ -213,17 +263,21 @@ function GameView({
         cards={roundState.hand}
         onPlay={onPlayCard}
         myTurn={myTurn && isPlaying}
+        playableCards={playableCards}
       />
 
-      {/* Overlays */}
-      {myBidPending && myTurn && (
+      {/* Overlays — suppressed while round summary is showing */}
+      {myBidPending && myTurn && !suppressModals && (
         <BidModal
           roundNumber={gameState.current_round}
           maxBid={gameState.current_round}
           onBid={onBid}
+          forbiddenBid={forbiddenBid}
+          players={gameState.players}
+          bids={roundState.bids}
+          playerId={playerId}
         />
       )}
-      {isChoosingTrump && <TrumpChooser onChoose={onChooseTrump} />}
     </div>
   )
 }

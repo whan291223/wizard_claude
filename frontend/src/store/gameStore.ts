@@ -2,8 +2,11 @@ import { create } from 'zustand'
 import type { GameState, RoundState, Suit } from '../types/game'
 
 export interface RoundResult {
+  round_number: number
   scores: Record<string, number>
   cumulative: Record<string, number>
+  bids: Record<string, number>
+  tricks_won: Record<string, number>
 }
 
 export interface GameResult {
@@ -86,6 +89,7 @@ export const useGameStore = create<GameStore>((set) => ({
         ),
         current_trick: [],
         last_trick_winner: null,
+        trick_winner_id: null,
       },
     })),
 

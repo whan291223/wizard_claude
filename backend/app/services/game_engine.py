@@ -3,6 +3,8 @@ Core game logic — Phase 2 implementation.
 Handles: deal, bidding phase, trick-taking resolution, round scoring.
 """
 
+import random
+
 from app.services.deck import (
     build_deck,
     deal,
@@ -22,7 +24,7 @@ class GameState:
         self.game_id = game_id
         self.num_players = num_players
         self.max_players = max_players
-        self.total_rounds = 60 // max_players
+        self.total_rounds = 3  # TODO: revert to `60 // max_players` after testing
 
         # Per-round state
         self.deck: list[str] = []
@@ -68,7 +70,7 @@ class GameState:
         if trump_card is None or is_jester(trump_card):
             self.trump_suit = "none"
         elif is_wizard(trump_card):
-            self.trump_suit = "pending"
+            self.trump_suit = random.choice(["C", "D", "H", "S"])
         else:
             self.trump_suit = get_suit(trump_card)
 
