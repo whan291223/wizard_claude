@@ -10,6 +10,8 @@ import Card from '../components/Card'
 import EmotePicker from '../components/EmotePicker'
 import RoundResult from '../components/RoundResult'
 import GameOver from '../components/GameOver'
+import { playSound, isMuted, toggleMute } from '../utils/sound'
+import type { RoundResult as RoundResultData } from '../store/gameStore'
 import type { GameState, RoundState } from '../types/game'
 
 function getPlayableCards(
@@ -58,6 +60,7 @@ export default function Game() {
   const roundState = useGameStore((s) => s.roundState)
   const roundResult = useGameStore((s) => s.roundResult)
   const gameResult = useGameStore((s) => s.gameResult)
+  const roundHistory = useGameStore((s) => s.roundHistory)
   const activeEmotes = useGameStore((s) => s.activeEmotes)
   const wsConnected = useGameStore((s) => s.wsConnected)
   const wsError = useGameStore((s) => s.wsError)
@@ -99,6 +102,7 @@ export default function Game() {
             onBid={handleBid}
             onEmote={handleEmote}
             activeEmotes={activeEmotes}
+            roundHistory={roundHistory}
             suppressModals
           />
         )}
@@ -137,6 +141,7 @@ export default function Game() {
         onBid={handleBid}
         onEmote={handleEmote}
         activeEmotes={activeEmotes}
+        roundHistory={roundHistory}
         suppressModals={roundResult !== null}
       />
 
@@ -169,10 +174,11 @@ interface GameViewProps {
   onBid: (bid: number) => void
   onEmote: (emote: string) => void
   activeEmotes: Record<string, string>
+  roundHistory: RoundResultData[]
   suppressModals?: boolean
 }
 
-const COUNTDOWN_SECS = 5
+// const COUNTDOWN_SECS = 5  // TODO: restore when re-enabling the turn countdown
 
 function GameView({
   gameState,
@@ -182,6 +188,7 @@ function GameView({
   onBid,
   onEmote,
   activeEmotes,
+  roundHistory,
   suppressModals = false,
 }: GameViewProps) {
   const [dragActive, setDragActive] = useState(false)
@@ -189,6 +196,7 @@ function GameView({
   const [bid, setBid] = useState(0)
   const [secs, setSecs] = useState<number | null>(null)
   const [emoteOpen, setEmoteOpen] = useState(false)
+  const [muted, setMuted] = useState(isMuted())
 
   // Refs keep callbacks/values fresh inside timer effects
   const bidRef = useRef(0)
@@ -239,9 +247,10 @@ function GameView({
     .filter((p) => p.id !== playerId && roundState.bids[p.id] != null)
     .map((p) => ({ nickname: p.nickname, bid: roundState.bids[p.id] as number }))
 
-  // Reset bid value when my turn begins
+  // Reset bid value when my turn begins + play the "your turn" cue
   useEffect(() => {
     if (!myTurn) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSecs(null)
       return
     }
@@ -250,6 +259,7 @@ function GameView({
       setBid(initial)
       bidRef.current = initial
     }
+    playSound('yourTurn')
     // TODO: re-enable countdown timer for bid and play turns
     // setSecs(COUNTDOWN_SECS)
   }, [myTurn]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -301,11 +311,22 @@ function GameView({
           </div>
         </div>
 
-        <Scoreboard
-          players={gameState.players}
-          tricksWon={roundState.tricks_won}
-          bids={roundState.bids}
-        />
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => setMuted(toggleMute())}
+            className="text-gray-400 hover:text-white transition-colors text-base leading-none"
+            aria-label={muted ? 'Unmute sounds' : 'Mute sounds'}
+            title={muted ? 'Unmute sounds' : 'Mute sounds'}
+          >
+            {muted ? '🔇' : '🔊'}
+          </button>
+          <Scoreboard
+            players={gameState.players}
+            tricksWon={roundState.tricks_won}
+            bids={roundState.bids}
+            roundHistory={roundHistory}
+          />
+        </div>
       </div>
 
       {/* Player strip */}

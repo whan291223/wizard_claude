@@ -11,8 +11,11 @@ export default function Lobby() {
   const setGameState = useGameStore((s) => s.setGameState)
   const wsError = useGameStore((s) => s.wsError)
   const setWsError = useGameStore((s) => s.setWsError)
+  const reset = useGameStore((s) => s.reset)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+
+  const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function'
 
   const copyCode = useCallback(() => {
     if (!gameState) return
@@ -21,6 +24,23 @@ export default function Lobby() {
       setTimeout(() => setCopied(false), 2000)
     })
   }, [gameState])
+
+  const shareCode = useCallback(() => {
+    if (!gameState) return
+    navigator
+      .share({
+        title: 'Wizard',
+        text: `Join my Wizard game! Room code: ${gameState.room_code}`,
+      })
+      .catch(() => {
+        /* user cancelled or share failed — ignore */
+      })
+  }, [gameState])
+
+  const leaveLobby = useCallback(() => {
+    reset()
+    navigate('/')
+  }, [reset, navigate])
   const { send } = useGameWS(roomCode ?? null, playerId)
 
   useEffect(() => {
@@ -104,6 +124,21 @@ export default function Lobby() {
                 </svg>
               )}
             </button>
+            {canShare && (
+              <button
+                onClick={shareCode}
+                title="Share room code"
+                className="text-gray-500 hover:text-white active:text-purple-400 transition-colors p-1 rounded"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="18" cy="5" r="3" />
+                  <circle cx="6" cy="12" r="3" />
+                  <circle cx="18" cy="19" r="3" />
+                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                  <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+                </svg>
+              </button>
+            )}
           </div>
           {copied && (
             <p className="text-green-400 text-xs">Copied to clipboard!</p>
@@ -157,6 +192,13 @@ export default function Lobby() {
             {wsError}
           </p>
         )}
+
+        <button
+          onClick={leaveLobby}
+          className="w-full text-gray-500 hover:text-gray-300 text-sm py-2 transition-colors"
+        >
+          Leave lobby
+        </button>
       </div>
     </div>
   )

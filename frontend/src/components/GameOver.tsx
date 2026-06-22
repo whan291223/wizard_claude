@@ -1,5 +1,7 @@
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useGameStore } from '../store/gameStore'
+import { playSound } from '../utils/sound'
 import type { PlayerInfo } from '../types/game'
 import type { GameResult } from '../store/gameStore'
 
@@ -11,6 +13,11 @@ interface GameOverProps {
 export default function GameOver({ result, players }: GameOverProps) {
   const navigate = useNavigate()
   const reset = useGameStore((s) => s.reset)
+
+  // Triumphant flourish when the final results appear
+  useEffect(() => {
+    playSound('gameOver')
+  }, [])
 
   const ranked = [...players].sort(
     (a, b) => (result.final_scores[b.id] ?? 0) - (result.final_scores[a.id] ?? 0)

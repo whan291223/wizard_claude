@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 import type { GameState, RoundState, Suit } from '../types/game'
 
 export interface RoundResult {
@@ -28,6 +29,9 @@ interface GameStore {
   // End-of-round / end-of-game overlays
   roundResult: RoundResult | null
   gameResult: GameResult | null
+
+  // Per-round score history for the whole game (oldest first)
+  roundHistory: RoundResult[]
 
   // Transient in-game error toast (game logic errors, not connection errors)
   gameError: string | null
@@ -69,7 +73,9 @@ const initialRoundState: RoundState = {
 // Module-level timers so auto-clear survives re-renders
 const _emoteClearTimers: Record<string, ReturnType<typeof setTimeout>> = {}
 
-export const useGameStore = create<GameStore>((set) => ({
+export const useGameStore = create<GameStore>()(
+  persist(
+    (set) => ({
   playerId: null,
   nickname: null,
   roomCode: null,
@@ -79,6 +85,7 @@ export const useGameStore = create<GameStore>((set) => ({
   wsConnected: false,
   roundResult: null,
   gameResult: null,
+  roundHistory: [],
   gameError: null,
   activeEmotes: {},
 
@@ -165,7 +172,15 @@ export const useGameStore = create<GameStore>((set) => ({
       }
     }),
 
-  setRoundResult: (roundResult) => set({ roundResult }),
+  setRoundResult: (roundResult) =>
+    set((s) => ({
+      roundResult,
+      // Append to history, replacing any existing entry for the same round
+      roundHistory: [
+        ...s.roundHistory.filter((r) => r.round_number !== roundResult.round_number),
+        roundResult,
+      ].sort((a, b) => a.round_number - b.round_number),
+    })),
 
   clearRoundResult: () => set({ roundResult: null }),
 
@@ -205,10 +220,23 @@ export const useGameStore = create<GameStore>((set) => ({
       roundState: null,
       roundResult: null,
       gameResult: null,
+      roundHistory: [],
       wsError: null,
       wsConnected: false,
       gameError: null,
       activeEmotes: {},
     })
   },
-}))
+    }),
+    {
+      name: 'wizard-identity',
+      // Only persist identity so a page refresh can rejoin the room.
+      // Transient game state is re-sent by the server on WS reconnect.
+      partialize: (s) => ({
+        playerId: s.playerId,
+        nickname: s.nickname,
+        roomCode: s.roomCode,
+      }),
+    },
+  ),
+)

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { useGameStore } from '../store/gameStore'
+import { playSound } from '../utils/sound'
 import type { GameState, Suit, WsMessage } from '../types/game'
 
 export function useGameWS(roomCode: string | null, playerId: string | null) {
@@ -140,6 +141,7 @@ function handleMessage(msg: WsMessage) {
     case 'bid_submitted': {
       const p = msg.payload as { player_id: string; bid: number }
       store.recordBid(p.player_id, p.bid)
+      if (p.player_id === store.playerId) playSound('bidPlaced')
       break
     }
 
@@ -154,6 +156,9 @@ function handleMessage(msg: WsMessage) {
       store.recordCardPlayed(p.player_id, p.card)
       if (p.player_id === store.playerId) {
         store.removeCardFromHand(p.card)
+        playSound('cardPlaySelf')
+      } else {
+        playSound('cardPlay')
       }
       break
     }
@@ -163,6 +168,7 @@ function handleMessage(msg: WsMessage) {
       // Highlight the winning card for 1.5 s before clearing the trick
       if (trickClearTimer) clearTimeout(trickClearTimer)
       store.setTrickWinner(p.winner_id)
+      playSound('trickWin')
       trickClearTimer = setTimeout(() => {
         useGameStore.getState().completeTrick(p.winner_id)
         trickClearTimer = null
@@ -188,6 +194,7 @@ function handleMessage(msg: WsMessage) {
           bids: p.bids,
           tricks_won: p.tricks_won,
         })
+        playSound('roundComplete')
         // Flush buffered state now that the overlay is covering the UI
         if (pendingGameState) pendingGameState()
         if (pendingRoundStarted) pendingRoundStarted()
@@ -217,6 +224,7 @@ function handleMessage(msg: WsMessage) {
     case 'emote_sent': {
       const p = msg.payload as { player_id: string; emote: string }
       store.addEmote(p.player_id, p.emote)
+      playSound('emote')
       break
     }
 

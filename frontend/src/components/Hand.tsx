@@ -144,7 +144,7 @@ export default function Hand({
 
   const overlap = cards.length > 7
 
-  let hint = ''
+  let hint: string
   if (myTurn) {
     if (drag?.moved && inPlayZone) hint = 'Release to play!'
     else if (drag?.moved) hint = 'Drag up to the center to play'
