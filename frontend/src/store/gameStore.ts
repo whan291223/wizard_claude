@@ -29,11 +29,15 @@ interface GameStore {
   roundResult: RoundResult | null
   gameResult: GameResult | null
 
+  // Transient in-game error toast (game logic errors, not connection errors)
+  gameError: string | null
+
   // Actions
   setIdentity: (playerId: string, nickname: string, roomCode: string) => void
   setGameState: (state: GameState) => void
   setWsError: (msg: string | null) => void
   setWsConnected: (connected: boolean) => void
+  setGameError: (msg: string | null) => void
   setRoundHand: (hand: string[]) => void
   setTrumpSuit: (suit: Suit) => void
   recordBid: (playerId: string, bid: number) => void
@@ -68,6 +72,7 @@ export const useGameStore = create<GameStore>((set) => ({
   wsConnected: false,
   roundResult: null,
   gameResult: null,
+  gameError: null,
 
   setIdentity: (playerId, nickname, roomCode) =>
     set({ playerId, nickname, roomCode }),
@@ -77,6 +82,8 @@ export const useGameStore = create<GameStore>((set) => ({
   setWsError: (wsError) => set({ wsError }),
 
   setWsConnected: (wsConnected) => set({ wsConnected }),
+
+  setGameError: (gameError) => set({ gameError }),
 
   setRoundHand: (hand) =>
     set((s) => ({
@@ -177,5 +184,6 @@ export const useGameStore = create<GameStore>((set) => ({
       gameResult: null,
       wsError: null,
       wsConnected: false,
+      gameError: null,
     }),
 }))

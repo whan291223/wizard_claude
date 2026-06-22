@@ -70,11 +70,19 @@ async def websocket_endpoint(
     if state:
         await room_manager.broadcast(room_code, {"type": "game_state", "payload": state})
 
+    # If the game is finished (e.g. player navigated back to old room URL after Play Again),
+    # re-send game_complete so the client shows the GameOver screen immediately.
+    gs = room_manager.game_states.get(room_code)
+    if state and state.get("status") == "finished":
+        final_scores = {p["id"]: p["total_score"] for p in state.get("players", [])}
+        await room_manager.send_to_player(room_code, str(player_id), {
+            "type": "game_complete",
+            "payload": {"final_scores": final_scores},
+        })
     # If game is already in progress, send this player their current hand.
     # This covers the Lobby→Game page transition where the old WS closes before
     # the new one opens, so round_started from start_game may have been missed.
-    gs = room_manager.game_states.get(room_code)
-    if gs and state and state.get("status") == "in_progress":
+    elif gs and state and state.get("status") == "in_progress":
         pid = str(player_id)
         hand = gs.hands.get(pid, [])
         await room_manager.send_to_player(room_code, pid, {

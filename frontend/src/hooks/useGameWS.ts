@@ -67,6 +67,11 @@ export function useGameWS(roomCode: string | null, playerId: string | null) {
     return () => {
       intentionalClose = true
       if (retryTimer) clearTimeout(retryTimer)
+      // Cancel any pending trick-highlight timer so it doesn't fire against stale state
+      if (trickClearTimer) {
+        clearTimeout(trickClearTimer)
+        trickClearTimer = null
+      }
       socket.close()
     }
   }, [roomCode, playerId, socketGen])
@@ -173,8 +178,8 @@ function handleMessage(msg: WsMessage) {
 
     case 'error': {
       const p = msg.payload as { message: string }
-      console.error('[WS error]', p.message)
-      store.setWsError(p.message)
+      console.error('[WS game error]', p.message)
+      store.setGameError(p.message)
       break
     }
 

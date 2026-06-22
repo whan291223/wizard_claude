@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useGameStore } from '../store/gameStore'
 import { useGameWS } from '../hooks/useGameWS'
@@ -48,7 +48,17 @@ const SUIT_DISPLAY: Record<string, string> = {
   H: '♥ Hearts',
   S: '♠ Spades',
   none: 'None',
-  pending: '?',
+}
+
+const SUIT_SYMBOL: Record<string, string> = { C: '♣', D: '♦', H: '♥', S: '♠' }
+
+function formatTrumpCard(card: string | null): string {
+  if (!card) return ''
+  if (card.startsWith('W')) return 'Wizard'
+  if (card.startsWith('N')) return 'Jester'
+  const suit = SUIT_SYMBOL[card[0]] ?? card[0]
+  const rank = card.slice(1)
+  return `${rank}${suit}`
 }
 
 export default function Game() {
@@ -62,14 +72,23 @@ export default function Game() {
   const gameResult = useGameStore((s) => s.gameResult)
   const wsConnected = useGameStore((s) => s.wsConnected)
   const wsError = useGameStore((s) => s.wsError)
+  const gameError = useGameStore((s) => s.gameError)
   const clearRoundResult = useGameStore((s) => s.clearRoundResult)
   const setWsError = useGameStore((s) => s.setWsError)
+  const setGameError = useGameStore((s) => s.setGameError)
 
   const { send, reconnect } = useGameWS(roomCode ?? null, playerId)
 
   useEffect(() => {
     if (!playerId) navigate('/')
   }, [playerId, navigate])
+
+  // Auto-dismiss game error toast after 3 s
+  useEffect(() => {
+    if (!gameError) return
+    const t = setTimeout(() => setGameError(null), 3000)
+    return () => clearTimeout(t)
+  }, [gameError, setGameError])
 
   function handlePlayCard(card: string) {
     send('play_card', { card })
@@ -151,6 +170,13 @@ export default function Game() {
           onContinue={clearRoundResult}
         />
       )}
+
+      {/* Game error toast — auto-dismissed after 3 s */}
+      {gameError && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-90 px-4 py-2 bg-red-900/90 border border-red-500/60 text-red-200 text-sm font-medium rounded-xl shadow-lg max-w-xs text-center pointer-events-none">
+          {gameError}
+        </div>
+      )}
     </>
   )
 }
@@ -174,6 +200,14 @@ function GameView({
   onBid,
   suppressModals = false,
 }: GameViewProps) {
+  const [dragActive, setDragActive] = useState(false)
+  const [dragInZone, setDragInZone] = useState(false)
+
+  function handleDragChange(isDragging: boolean, inPlayZone: boolean) {
+    setDragActive(isDragging)
+    setDragInZone(inPlayZone)
+  }
+
   const myTurn = gameState.players[gameState.current_player_seat]?.id === playerId
   const isBidding = gameState.current_phase === 'bidding'
   const isPlaying = gameState.current_phase === 'playing'
@@ -205,9 +239,16 @@ function GameView({
           <span className="text-white font-bold">{gameState.current_round}</span>
           <span className="text-gray-600">/{gameState.total_rounds}</span>
         </div>
-        <div className="text-sm text-center">
-          <span className="text-gray-500">Trump </span>
-          <span className="font-bold text-yellow-400">{trumpDisplay}</span>
+        <div className="text-sm text-center leading-tight">
+          <div>
+            <span className="text-gray-500">Trump </span>
+            <span className="font-bold text-yellow-400">{trumpDisplay}</span>
+          </div>
+          {gameState.trump_card && (
+            <div className="text-xs text-gray-500">
+              {formatTrumpCard(gameState.trump_card)} flipped
+            </div>
+          )}
         </div>
         <Scoreboard
           players={gameState.players}
@@ -235,8 +276,16 @@ function GameView({
         </div>
       )}
 
-      {/* Center area */}
-      <div className="flex-1 flex items-center justify-center p-4 min-h-0">
+      {/* Center area — also serves as the drag-to-play drop zone */}
+      <div
+        className={`flex-1 flex items-center justify-center p-4 min-h-0 rounded-lg transition-all duration-150 ${
+          dragActive && isPlaying
+            ? dragInZone
+              ? 'ring-2 ring-green-400 bg-green-500/10'
+              : 'ring-2 ring-dashed ring-gray-600 bg-gray-800/30'
+            : ''
+        }`}
+      >
         {isBidding ? (
           <div className="text-center space-y-2">
             <p className="text-gray-400 text-sm">
@@ -246,15 +295,22 @@ function GameView({
             </p>
           </div>
         ) : (
-          <TrickArea
-            trick={roundState.current_trick}
-            players={gameState.players}
-            lastWinner={roundState.last_trick_winner}
-            trickWinnerId={roundState.trick_winner_id}
-            currentPlayerName={
-              gameState.players[gameState.current_player_seat]?.nickname ?? null
-            }
-          />
+          <>
+            {dragActive && isPlaying && (
+              <p className={`absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 text-sm font-semibold pointer-events-none z-10 transition-colors ${dragInZone ? 'text-green-400' : 'text-gray-500'}`}>
+                {dragInZone ? 'Release to play!' : 'Drag here to play'}
+              </p>
+            )}
+            <TrickArea
+              trick={roundState.current_trick}
+              players={gameState.players}
+              lastWinner={roundState.last_trick_winner}
+              trickWinnerId={roundState.trick_winner_id}
+              currentPlayerName={
+                gameState.players[gameState.current_player_seat]?.nickname ?? null
+              }
+            />
+          </>
         )}
       </div>
 
@@ -264,6 +320,7 @@ function GameView({
         onPlay={onPlayCard}
         myTurn={myTurn && isPlaying}
         playableCards={playableCards}
+        onDragChange={handleDragChange}
       />
 
       {/* Overlays — suppressed while round summary is showing */}

@@ -1,6 +1,6 @@
 export type GameStatus = 'waiting' | 'in_progress' | 'finished'
 export type GamePhase = 'waiting' | 'dealing' | 'bidding' | 'playing' | 'scoring'
-export type Suit = 'C' | 'D' | 'H' | 'S' | 'none' | 'pending' | null
+export type Suit = 'C' | 'D' | 'H' | 'S' | 'none' | null
 
 export interface PlayerInfo {
   id: string
