@@ -69,17 +69,28 @@ class TestStartRound:
         assert gs.trump_suit == "H"
         assert gs.trump_card == "H7"
 
-    def test_trump_suit_pending_when_wizard_flipped(self):
-        deck = padded_deck("C2", "D3", "S4", "W1")
+    def test_wizard_flip_uses_card_suit(self):
+        # W1=Clubs, W2=Diamonds, W3=Hearts, W4=Spades
+        deck = padded_deck("C2", "D3", "S4", "W3")
         gs = make_game(3)
         gs.start_round(1, 0, deck=deck)
-        assert gs.trump_suit == "pending"
+        assert gs.trump_suit == "H"
+        assert gs.trump_card == "W3"
 
-    def test_trump_suit_none_when_jester_flipped(self):
-        deck = padded_deck("C2", "D3", "S4", "N1")
+    def test_jester_flip_uses_card_suit(self):
+        # N1=Clubs, N2=Diamonds, N3=Hearts, N4=Spades
+        deck = padded_deck("C2", "D3", "S4", "N2")
         gs = make_game(3)
         gs.start_round(1, 0, deck=deck)
+        assert gs.trump_suit == "D"
+        assert gs.trump_card == "N2"
+
+    def test_no_trump_when_deck_exhausted(self):
+        # Round 20 × 3 players = 60 cards dealt; no card left for trump
+        gs = make_game(3)
+        gs.start_round(20, 0)
         assert gs.trump_suit == "none"
+        assert gs.trump_card is None
 
     def test_first_bidder_is_left_of_dealer(self):
         gs = make_game(3)

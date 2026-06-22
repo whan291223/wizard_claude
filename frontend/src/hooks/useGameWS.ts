@@ -81,13 +81,23 @@ export function useGameWS(roomCode: string | null, playerId: string | null) {
 
 // Module-level so rapid trick_complete events cancel the previous timer
 let trickClearTimer: ReturnType<typeof setTimeout> | null = null
+// Buffers next-round messages during the post-round trick animation window so the
+// player sees the last trick winner before the UI switches to the new round
+let pendingGameState: (() => void) | null = null
+let pendingRoundStarted: (() => void) | null = null
+let pendingGameComplete: (() => void) | null = null
 
 function handleMessage(msg: WsMessage) {
   const store = useGameStore.getState()
 
   switch (msg.type) {
     case 'game_state': {
-      store.setGameState(msg.payload as GameState)
+      const gs = msg.payload as GameState
+      if (trickClearTimer) {
+        pendingGameState = () => { pendingGameState = null; store.setGameState(gs) }
+      } else {
+        store.setGameState(gs)
+      }
       break
     }
 
@@ -99,20 +109,30 @@ function handleMessage(msg: WsMessage) {
         bids?: Record<string, number>
         current_trick?: Array<{ player_id: string; card: string }>
       }
-      // Cancel any pending trick-highlight timer so it doesn't fire into the new round
-      if (trickClearTimer) {
-        clearTimeout(trickClearTimer)
-        trickClearTimer = null
-      }
-      // Do NOT clearRoundResult here — let the user dismiss the overlay themselves
-      store.setRoundHand(p.hand)
-      if (p.trump_suit) store.setTrumpSuit(p.trump_suit as Suit)
-      // On reconnect the server sends current bids/trick so state stays consistent
-      if (p.bids && Object.keys(p.bids).length > 0) store.revealBids(p.bids)
-      if (p.current_trick) {
-        for (const { player_id, card } of p.current_trick) {
-          store.recordCardPlayed(player_id, card)
+      const applyRoundStarted = () => {
+        // Cancel any pending trick-highlight timer so it doesn't fire into the new round
+        if (trickClearTimer) {
+          clearTimeout(trickClearTimer)
+          trickClearTimer = null
         }
+        pendingRoundStarted = null
+        // Do NOT clearRoundResult here — let the user dismiss the overlay themselves
+        store.setRoundHand(p.hand)
+        if (p.trump_suit) store.setTrumpSuit(p.trump_suit as Suit)
+        // On reconnect the server sends current bids/trick so state stays consistent
+        if (p.bids && Object.keys(p.bids).length > 0) store.revealBids(p.bids)
+        if (p.current_trick) {
+          for (const { player_id, card } of p.current_trick) {
+            store.recordCardPlayed(player_id, card)
+          }
+        }
+      }
+      // If the trick animation window is still active, buffer this so the player
+      // doesn't see next round's hand flicker in before the round result overlay appears
+      if (trickClearTimer) {
+        pendingRoundStarted = applyRoundStarted
+      } else {
+        applyRoundStarted()
       }
       break
     }
@@ -160,19 +180,43 @@ function handleMessage(msg: WsMessage) {
       // Snapshot current_round NOW — the next game_state for round N+1 will overwrite it
       // and would make the overlay show "See Final Results" prematurely
       const snappedRound = store.gameState?.current_round ?? 0
-      store.setRoundResult({
-        round_number: snappedRound,
-        scores: p.scores,
-        cumulative: p.cumulative_scores,
-        bids: p.bids,
-        tricks_won: p.tricks_won,
-      })
+      const showResult = () => {
+        store.setRoundResult({
+          round_number: snappedRound,
+          scores: p.scores,
+          cumulative: p.cumulative_scores,
+          bids: p.bids,
+          tricks_won: p.tricks_won,
+        })
+        // Flush buffered state now that the overlay is covering the UI
+        if (pendingGameState) pendingGameState()
+        if (pendingRoundStarted) pendingRoundStarted()
+        if (pendingGameComplete) pendingGameComplete()
+      }
+      // If the last trick's winner highlight is still animating, wait for it to finish
+      // before showing the round result overlay so the player can see who won
+      if (trickClearTimer) {
+        setTimeout(showResult, 1600)
+      } else {
+        showResult()
+      }
       break
     }
 
     case 'game_complete': {
       const p = msg.payload as { final_scores: Record<string, number> }
-      store.setGameResult({ final_scores: p.final_scores })
+      const apply = () => { pendingGameComplete = null; store.setGameResult({ final_scores: p.final_scores }) }
+      if (trickClearTimer) {
+        pendingGameComplete = apply
+      } else {
+        apply()
+      }
+      break
+    }
+
+    case 'emote_sent': {
+      const p = msg.payload as { player_id: string; emote: string }
+      store.addEmote(p.player_id, p.emote)
       break
     }
 

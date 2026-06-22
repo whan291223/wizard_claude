@@ -363,6 +363,35 @@ async def handle_play_card(room_code: str, player_id: str, payload: dict):
 
 
 # ---------------------------------------------------------------------------
+# emote
+# ---------------------------------------------------------------------------
+
+_ALLOWED_EMOTES = {
+    "Please let me win 🥺", "Have mercy on me... 🙏",
+    "I will win this round! 💪", "Watch out everyone! 😈",
+    "So lucky!! 🎉", "GG everyone! 🏆",
+    "I'm so doomed 😭", "No way this is happening... 💀",
+    "Don't be so cruel to me 😢", "Just this one trick, please! 🙏",
+    "Nobody can stop me now! 🔥", "I know exactly what you have 😏",
+    "Best hand ever!! ✨", "I called it from the start! 🎯",
+    "Why is life so unfair 😩", "This can't be real... 💔",
+    "Be nice to me ok? 🥹", "I'll remember this... 👀",
+    "Trust the process! 💯", "I see through your plan 🕵️",
+    "Lucky me lucky me~ 🍀", "Flawless victory! 👑",
+    "Send help please 😱", "RIP me 🪦",
+}
+
+async def handle_emote(room_code: str, player_id: str, payload: dict):
+    emote = payload.get("emote", "")
+    if emote not in _ALLOWED_EMOTES:
+        return
+    await room_manager.broadcast(room_code, {
+        "type": "emote_sent",
+        "payload": {"player_id": player_id, "emote": emote},
+    })
+
+
+# ---------------------------------------------------------------------------
 # Registration
 # ---------------------------------------------------------------------------
 
@@ -371,3 +400,4 @@ def register_all(manager=None):
     m.register("start_game", handle_start_game)
     m.register("submit_bid", handle_submit_bid)
     m.register("play_card", handle_play_card)
+    m.register("emote", handle_emote)

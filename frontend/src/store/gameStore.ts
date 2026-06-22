@@ -32,6 +32,9 @@ interface GameStore {
   // Transient in-game error toast (game logic errors, not connection errors)
   gameError: string | null
 
+  // Active emote speech bubbles — player_id → phrase (auto-clears after 4 s)
+  activeEmotes: Record<string, string>
+
   // Actions
   setIdentity: (playerId: string, nickname: string, roomCode: string) => void
   setGameState: (state: GameState) => void
@@ -49,6 +52,7 @@ interface GameStore {
   setRoundResult: (result: RoundResult) => void
   clearRoundResult: () => void
   setGameResult: (result: GameResult) => void
+  addEmote: (playerId: string, emote: string) => void
   resetRound: () => void
   reset: () => void
 }
@@ -62,6 +66,9 @@ const initialRoundState: RoundState = {
   trick_winner_id: null,
 }
 
+// Module-level timers so auto-clear survives re-renders
+const _emoteClearTimers: Record<string, ReturnType<typeof setTimeout>> = {}
+
 export const useGameStore = create<GameStore>((set) => ({
   playerId: null,
   nickname: null,
@@ -73,6 +80,7 @@ export const useGameStore = create<GameStore>((set) => ({
   roundResult: null,
   gameResult: null,
   gameError: null,
+  activeEmotes: {},
 
   setIdentity: (playerId, nickname, roomCode) =>
     set({ playerId, nickname, roomCode }),
@@ -163,6 +171,19 @@ export const useGameStore = create<GameStore>((set) => ({
 
   setGameResult: (gameResult) => set({ gameResult, roundResult: null }),
 
+  addEmote: (playerId, emote) => {
+    if (_emoteClearTimers[playerId]) clearTimeout(_emoteClearTimers[playerId])
+    set((s) => ({ activeEmotes: { ...s.activeEmotes, [playerId]: emote } }))
+    _emoteClearTimers[playerId] = setTimeout(() => {
+      useGameStore.setState((s) => {
+        const next = { ...s.activeEmotes }
+        delete next[playerId]
+        return { activeEmotes: next }
+      })
+      delete _emoteClearTimers[playerId]
+    }, 4000)
+  },
+
   resetRound: () =>
     set((s) => ({
       roundState: s.gameState
@@ -173,7 +194,9 @@ export const useGameStore = create<GameStore>((set) => ({
         : null,
     })),
 
-  reset: () =>
+  reset: () => {
+    Object.values(_emoteClearTimers).forEach(clearTimeout)
+    Object.keys(_emoteClearTimers).forEach((k) => delete _emoteClearTimers[k])
     set({
       playerId: null,
       nickname: null,
@@ -185,5 +208,7 @@ export const useGameStore = create<GameStore>((set) => ({
       wsError: null,
       wsConnected: false,
       gameError: null,
-    }),
+      activeEmotes: {},
+    })
+  },
 }))

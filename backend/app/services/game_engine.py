@@ -3,13 +3,12 @@ Core game logic — Phase 2 implementation.
 Handles: deal, bidding phase, trick-taking resolution, round scoring.
 """
 
-import random
-
 from app.services.deck import (
     build_deck,
     deal,
     get_rank_value,
     get_suit,
+    get_trump_suit,
     is_jester,
     is_wizard,
     shuffle_deck,
@@ -67,12 +66,10 @@ class GameState:
         self.hands = {pid: hands_list[i] for i, pid in enumerate(player_order)}
         self.trump_card = trump_card
 
-        if trump_card is None or is_jester(trump_card):
+        if trump_card is None:
             self.trump_suit = "none"
-        elif is_wizard(trump_card):
-            self.trump_suit = random.choice(["C", "D", "H", "S"])
         else:
-            self.trump_suit = get_suit(trump_card)
+            self.trump_suit = get_trump_suit(trump_card)
 
         # Bidding starts left of dealer
         self.current_player_seat = (dealer_seat + 1) % self.num_players
