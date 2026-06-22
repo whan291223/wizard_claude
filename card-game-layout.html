@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Card Game Layout</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-0:#070b16;
+    --bg-1:#0d1426;
+    --panel:#141d36;
+    --panel-edge:#26345c;
+    --neon-yellow:#FFD83D;
+    --neon-yellow-soft:#FFE98A;
+    --cyan:#3DE0FF;
+    --magenta:#FF4D9D;
+    --purple:#7B6BFF;
+    --purple-deep:#2A2150;
+    --card-paper:#FBF6EE;
+    --suit-red:#E8395C;
+    --suit-dark:#1B2138;
+    --txt:#EAF0FF;
+    --txt-dim:#9AA8CC;
+    --font-display:"Fredoka",system-ui,sans-serif;
+    --font-ui:"Outfit",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:#02040a;
+    font-family:var(--font-ui);
+    display:flex;align-items:center;justify-content:center;
+    min-height:100vh;padding:16px;
+  }
+
+  /* ---------- STAGE ---------- */
+  .stage{
+    position:relative;
+    width:100%;max-width:1100px;aspect-ratio:16/9;
+    border-radius:18px;overflow:hidden;
+    background:
+      radial-gradient(120% 90% at 50% 18%, #1a2b4a 0%, transparent 55%),
+      radial-gradient(80% 70% at 50% 45%, rgba(123,107,255,.18), transparent 60%),
+      radial-gradient(60% 60% at 12% 80%, rgba(61,224,255,.10), transparent 60%),
+      radial-gradient(60% 60% at 88% 80%, rgba(255,77,157,.10), transparent 60%),
+      linear-gradient(180deg, var(--bg-1), var(--bg-0));
+    box-shadow:0 30px 80px rgba(0,0,0,.6), inset 0 0 0 1px rgba(123,107,255,.12);
+    container-type:inline-size;
+  }
+  /* faint tech grid */
+  .stage::before{
+    content:"";position:absolute;inset:0;
+    background-image:
+      linear-gradient(rgba(123,107,255,.06) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(123,107,255,.06) 1px,transparent 1px);
+    background-size:46px 46px;
+    mask:radial-gradient(120% 100% at 50% 40%, #000 30%, transparent 90%);
+    pointer-events:none;
+  }
+
+  /* background character placeholders (swap for real art) */
+  .char{position:absolute;width:26%;aspect-ratio:3/4;filter:blur(1px);opacity:.55;border-radius:40% 40% 30% 30%;}
+  .char.tl{top:-4%;left:-3%;background:radial-gradient(60% 60% at 50% 35%,rgba(61,224,255,.5),transparent 70%);}
+  .char.tr{top:-5%;right:-3%;background:radial-gradient(60% 60% at 50% 35%,rgba(255,216,61,.45),transparent 70%);}
+  .char.bl{bottom:-6%;left:-4%;background:radial-gradient(60% 60% at 50% 60%,rgba(123,107,255,.5),transparent 70%);}
+  .char.br{bottom:-6%;right:-4%;background:radial-gradient(60% 60% at 50% 60%,rgba(255,77,157,.45),transparent 70%);}
+
+  /* confetti sparkle dots */
+  .spark{position:absolute;width:7px;height:7px;border-radius:2px;opacity:.85;}
+
+  /* ---------- ROUND COUNTER ---------- */
+  .round{
+    position:absolute;top:3%;left:50%;transform:translateX(-50%);
+    display:flex;flex-direction:column;align-items:center;z-index:6;
+  }
+  .round .label{
+    font-family:var(--font-display);font-weight:600;letter-spacing:.18em;
+    color:var(--txt-dim);font-size:clamp(10px,1.1cqw,13px);
+  }
+  .round .num{
+    font-family:var(--font-display);font-weight:700;line-height:1;
+    font-size:clamp(26px,3.4cqw,42px);color:#fff;
+    text-shadow:0 0 14px var(--neon-yellow),0 2px 0 rgba(0,0,0,.4);
+  }
+  .round .num::before,.round .num::after{
+    content:"";display:inline-block;width:clamp(20px,3cqw,38px);height:2px;
+    vertical-align:middle;margin:0 10px;
+    background:linear-gradient(90deg,transparent,var(--neon-yellow));
+  }
+  .round .num::after{transform:scaleX(-1)}
+
+  /* settings */
+  .gear{
+    position:absolute;top:3.5%;right:2.5%;width:clamp(26px,3cqw,40px);aspect-ratio:1;
+    border-radius:50%;display:grid;place-items:center;z-index:6;
+    background:var(--panel);border:1px solid var(--panel-edge);
+    color:var(--txt-dim);font-size:clamp(13px,1.6cqw,20px);cursor:pointer;
+    box-shadow:0 4px 12px rgba(0,0,0,.4);
+  }
+  .gear:hover{color:var(--neon-yellow)}
+
+  /* ---------- PLAYER HUD ---------- */
+  .hud{position:absolute;display:flex;align-items:center;gap:10px;z-index:5;}
+  .hud .av{
+    width:clamp(40px,6cqw,74px);aspect-ratio:1;flex:none;border-radius:18px;
+    background:linear-gradient(160deg,var(--purple),var(--purple-deep));
+    border:2px solid rgba(255,255,255,.18);position:relative;
+    display:grid;place-items:center;overflow:hidden;
+    box-shadow:0 0 0 3px var(--bg-0),0 6px 16px rgba(0,0,0,.5);
+  }
+  .hud .av span{font-family:var(--font-display);font-weight:600;color:#fff;font-size:clamp(14px,2cqw,26px);opacity:.9}
+  .hud .meta{display:flex;flex-direction:column;gap:5px;min-width:0}
+  .hud .name{
+    font-family:var(--font-display);font-weight:600;color:var(--txt);
+    font-size:clamp(11px,1.5cqw,18px);line-height:1;
+    padding:5px 12px;border-radius:999px;white-space:nowrap;
+    background:linear-gradient(180deg,#202c4e,#161f3a);
+    border:1px solid var(--panel-edge);
+    box-shadow:0 2px 8px rgba(0,0,0,.45);
+  }
+  .hud.leader .name{
+    border-color:var(--neon-yellow);
+    box-shadow:0 0 14px rgba(255,216,61,.45);
+  }
+  .hud .crown{
+    position:absolute;top:-14px;left:50%;transform:translateX(-50%);
+    font-size:clamp(13px,1.8cqw,22px);filter:drop-shadow(0 0 6px var(--neon-yellow));
+  }
+  .pips{display:flex;align-items:center;gap:3px;padding-left:4px}
+  .pips i{
+    width:clamp(5px,.8cqw,9px);height:clamp(8px,1.2cqw,14px);border-radius:2px;
+    background:linear-gradient(180deg,#5a6aa8,#2c3666);
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.12);
+  }
+  .pips b{
+    font-family:var(--font-display);font-weight:700;color:#fff;
+    font-size:clamp(11px,1.4cqw,17px);margin-left:6px;
+    text-shadow:0 0 8px var(--cyan);
+  }
+
+  .hud.tl{top:5%;left:3%}
+  .hud.tr{top:5%;right:3%;flex-direction:row-reverse}
+  .hud.tr .meta{align-items:flex-end}
+  .hud.ml{top:46%;left:5%}
+  .hud.mr{top:46%;right:5%;flex-direction:row-reverse}
+  .hud.mr .meta{align-items:flex-end}
+
+  /* ---------- TIMER ---------- */
+  .timer{
+    position:absolute;top:62%;left:6.5%;transform:translateY(-50%);
+    width:clamp(46px,6.4cqw,80px);aspect-ratio:1;border-radius:50%;
+    display:grid;place-items:center;z-index:6;
+    background:radial-gradient(circle,#10182e 60%,#0a1020 100%);
+    border:3px solid var(--neon-yellow);
+    box-shadow:0 0 22px rgba(255,216,61,.5),inset 0 0 14px rgba(255,216,61,.25);
+    animation:pulse 1.6s ease-in-out infinite;
+  }
+  .timer b{font-family:var(--font-display);font-weight:700;color:#fff;font-size:clamp(20px,2.8cqw,38px);text-shadow:0 0 10px var(--neon-yellow)}
+  @keyframes pulse{50%{box-shadow:0 0 34px rgba(255,216,61,.75),inset 0 0 14px rgba(255,216,61,.3)}}
+
+  /* ---------- CENTER PLAY ZONE ---------- */
+  .play{
+    position:absolute;top:50%;left:50%;transform:translate(-50%,-46%);
+    width:36%;aspect-ratio:1/.86;z-index:4;
+    display:grid;place-items:center;
+  }
+  .play svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+  .trick{position:relative;display:flex;justify-content:center;transform:translateY(-6%)}
+  .pcard{
+    width:clamp(40px,7cqw,86px);aspect-ratio:5/7;border-radius:8px;
+    background:var(--card-paper);position:absolute;
+    box-shadow:0 8px 22px rgba(0,0,0,.55);
+    border:1px solid rgba(0,0,0,.15);
+  }
+  .pcard.l{transform:rotate(-12deg) translateX(-46%)}
+  .pcard.r{transform:rotate(12deg) translateX(46%)}
+  .pcard.c{
+    z-index:2;overflow:hidden;
+    background:linear-gradient(160deg,#b9a0ff,#6a53c7 60%,#3a2a78);
+  }
+  .pcard.c::after{
+    content:"";position:absolute;inset:18% 22% 0;border-radius:50% 50% 0 0;
+    background:radial-gradient(60% 70% at 50% 30%,rgba(255,233,138,.85),rgba(255,77,157,.4) 70%,transparent);
+  }
+
+  /* ---------- HAND ---------- */
+  .hand{
+    position:absolute;bottom:2%;left:50%;transform:translateX(-50%);
+    width:62%;height:30%;z-index:7;
+  }
+  .card{
+    position:absolute;bottom:0;left:50%;
+    width:clamp(34px,5.4cqw,68px);aspect-ratio:5/7;
+    margin-left:calc(clamp(34px,5.4cqw,68px) / -2);
+    background:var(--card-paper);border-radius:8px;
+    border:1px solid rgba(0,0,0,.18);
+    box-shadow:0 6px 14px rgba(0,0,0,.5);
+    transform-origin:50% 330%;
+    display:flex;flex-direction:column;justify-content:space-between;
+    padding:6px 6px;font-family:var(--font-display);font-weight:600;
+    transition:transform .15s ease;cursor:pointer;
+  }
+  .card:hover{transform:var(--t) translateY(-14px) !important;z-index:30}
+  .card .tl-r{font-size:clamp(10px,1.5cqw,18px);line-height:.9}
+  .card .br-r{font-size:clamp(10px,1.5cqw,18px);line-height:.9;align-self:flex-end;transform:rotate(180deg)}
+  .card .mid{position:absolute;inset:0;display:grid;place-items:center;font-size:clamp(16px,2.6cqw,32px)}
+  .red{color:var(--suit-red)}
+  .dark{color:var(--suit-dark)}
+
+  /* ---------- BUTTONS ---------- */
+  .btn{
+    position:absolute;bottom:8%;z-index:8;cursor:pointer;
+    font-family:var(--font-display);font-weight:600;color:#0e2a12;
+    font-size:clamp(11px,1.5cqw,18px);
+    padding:clamp(8px,1.2cqw,14px) clamp(14px,2cqw,26px);
+    border-radius:14px;border:none;
+    background:linear-gradient(180deg,#9be24a,#5fae26);
+    box-shadow:0 5px 0 #3c7716,0 8px 16px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.5);
+    transition:transform .08s,box-shadow .08s;
+  }
+  .btn:active{transform:translateY(4px);box-shadow:0 1px 0 #3c7716,0 4px 10px rgba(0,0,0,.4)}
+  .btn.left{left:3%}
+  .btn.right{right:3%}
+
+  @media (prefers-reduced-motion:reduce){
+    .timer{animation:none}
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <!-- background character placeholders -->
+    <div class="char tl"></div>
+    <div class="char tr"></div>
+    <div class="char bl"></div>
+    <div class="char br"></div>
+
+    <!-- sparkles -->
+    <div class="spark" style="top:30%;left:46%;background:var(--cyan)"></div>
+    <div class="spark" style="top:38%;left:56%;background:var(--magenta)"></div>
+    <div class="spark" style="top:28%;left:54%;background:var(--neon-yellow)"></div>
+    <div class="spark" style="top:42%;left:44%;background:var(--neon-yellow)"></div>
+
+    <!-- round counter -->
+    <div class="round">
+      <div class="label">ROUND</div>
+      <div class="num">2</div>
+    </div>
+
+    <!-- settings -->
+    <div class="gear" title="Settings">&#9881;</div>
+
+    <!-- opponents (top) -->
+    <div class="hud tl">
+      <div class="av"><span>A</span></div>
+      <div class="meta">
+        <div class="name">Akerinn</div>
+        <div class="pips"><i></i><i></i><i></i><i></i><b>10</b></div>
+      </div>
+    </div>
+
+    <div class="hud tr leader">
+      <div class="av"><span class="crown">&#128081;</span><span>G</span></div>
+      <div class="meta">
+        <div class="name">Gotcha Boy</div>
+        <div class="pips"><i></i><i></i><i></i><i></i><b>10</b></div>
+      </div>
+    </div>
+
+    <!-- players (sides) -->
+    <div class="hud ml">
+      <div class="av"><span>M</span></div>
+      <div class="meta">
+        <div class="name">Milli</div>
+        <div class="pips"><i></i><i></i><i></i><b>12</b></div>
+      </div>
+    </div>
+
+    <div class="hud mr leader">
+      <div class="av"><span class="crown">&#128081;</span><span>S</span></div>
+      <div class="meta">
+        <div class="name">sweeti</div>
+        <div class="pips"><i></i><i></i><i></i><b>10</b></div>
+      </div>
+    </div>
+
+    <!-- timer -->
+    <div class="timer"><b>20</b></div>
+
+    <!-- center play zone -->
+    <div class="play">
+      <svg viewBox="0 0 200 172" aria-hidden="true">
+        <polygon points="20,28 180,28 100,150" fill="rgba(255,216,61,.06)"
+          stroke="#FFD83D" stroke-width="2"
+          style="filter:drop-shadow(0 0 8px rgba(255,216,61,.7))"/>
+      </svg>
+      <div class="trick">
+        <div class="pcard l"></div>
+        <div class="pcard r"></div>
+        <div class="pcard c"></div>
+      </div>
+    </div>
+
+    <!-- hand -->
+    <div class="hand" id="hand"></div>
+
+    <!-- buttons -->
+    <button class="btn left">Sticker</button>
+    <button class="btn right">Arrange cards</button>
+  </div>
+
+<script>
+  // Build the fanned hand
+  const cards = [
+    {r:"4",s:"&clubs;",c:"dark"},
+    {r:"4",s:"&diams;",c:"red"},
+    {r:"6",s:"&spades;",c:"dark"},
+    {r:"9",s:"&hearts;",c:"red"},
+    {r:"10",s:"&diams;",c:"red"},
+    {r:"10",s:"&spades;",c:"dark"},
+    {r:"J",s:"&clubs;",c:"dark"},
+    {r:"Q",s:"&hearts;",c:"red"},
+    {r:"K",s:"&spades;",c:"dark"},
+    {r:"K",s:"&diams;",c:"red"},
+    {r:"A",s:"&spades;",c:"dark"},
+  ];
+  const hand = document.getElementById("hand");
+  const n = cards.length;
+  const spread = 5.4;               // degrees between cards
+  const start = -((n-1)/2)*spread;  // center the fan
+  cards.forEach((card,i)=>{
+    const ang = start + i*spread;
+    const el = document.createElement("div");
+    el.className = "card";
+    const t = `rotate(${ang}deg)`;
+    el.style.transform = t;
+    el.style.setProperty("--t", t);
+    el.style.zIndex = i;
+    el.innerHTML = `
+      <div class="tl-r ${card.c}">${card.r}<br>${card.s}</div>
+      <div class="mid ${card.c}">${card.s}</div>
+      <div class="br-r ${card.c}">${card.r}<br>${card.s}</div>`;
+    hand.appendChild(el);
+  });
+</script>
+</body>
+</html>

@@ -5,11 +5,11 @@ import { useGameWS } from '../hooks/useGameWS'
 import Hand from '../components/Hand'
 import TrickArea from '../components/TrickArea'
 import Scoreboard from '../components/Scoreboard'
-import PlayerStrip from '../components/PlayerStrip'
+import PlayerHud from '../components/PlayerHud'
 import BidModal from '../components/BidModal'
 import RoundResult from '../components/RoundResult'
 import GameOver from '../components/GameOver'
-import type { GameState, RoundState } from '../types/game'
+import type { GameState, RoundState, PlayerInfo } from '../types/game'
 
 function getPlayableCards(
   hand: string[],
@@ -17,16 +17,13 @@ function getPlayableCards(
 ): Set<string> {
   if (trick.length === 0) return new Set(hand)
 
-  // Led suit = suit of the first non-Jester card in the trick
   let ledSuit: string | null = null
   for (const { card } of trick) {
     if (!card.startsWith('N') && !card.startsWith('W')) {
-      ledSuit = card[0] // C / D / H / S
+      ledSuit = card[0]
       break
     }
   }
-
-  // All Jesters led → no suit constraint
   if (!ledSuit) return new Set(hand)
 
   const hasSuit = hand.some(
@@ -35,30 +32,46 @@ function getPlayableCards(
 
   return new Set(
     hand.filter((card) => {
-      if (card.startsWith('W') || card.startsWith('N')) return true // always playable
-      if (!hasSuit) return true // void in led suit → play anything
-      return card[0] === ledSuit // must follow suit
+      if (card.startsWith('W') || card.startsWith('N')) return true
+      if (!hasSuit) return true
+      return card[0] === ledSuit
     }),
   )
 }
 
-const SUIT_DISPLAY: Record<string, string> = {
-  C: '♣ Clubs',
-  D: '♦ Diamonds',
-  H: '♥ Hearts',
-  S: '♠ Spades',
-  none: 'None',
+const SUIT_SYMBOL: Record<string, string> = { C: '♣', D: '♦', H: '♥', S: '♠' }
+const SUIT_LABEL: Record<string, string> = {
+  C: 'Clubs', D: 'Diamonds', H: 'Hearts', S: 'Spades', none: 'No Trump',
 }
 
-const SUIT_SYMBOL: Record<string, string> = { C: '♣', D: '♦', H: '♥', S: '♠' }
+function isRedSuit(s: string | null | undefined) {
+  return s === 'D' || s === 'H'
+}
 
 function formatTrumpCard(card: string | null): string {
   if (!card) return ''
   if (card.startsWith('W')) return 'Wizard'
   if (card.startsWith('N')) return 'Jester'
   const suit = SUIT_SYMBOL[card[0]] ?? card[0]
-  const rank = card.slice(1)
-  return `${rank}${suit}`
+  return `${card.slice(1)}${suit}`
+}
+
+// Opponent seat slots positioned around the table
+const SLOT_POS: Record<string, React.CSSProperties> = {
+  ml: { top: '44%', left: '2.5%' },
+  tl: { top: '8%', left: '3%' },
+  tcl: { top: '6%', left: '31%' },
+  tcr: { top: '6%', right: '31%' },
+  tr: { top: '8%', right: '3%' },
+  mr: { top: '44%', right: '2.5%' },
+}
+const RIGHT_SLOTS = new Set(['tr', 'mr', 'tcr'])
+const LAYOUTS: Record<number, string[]> = {
+  1: ['tcl'],
+  2: ['ml', 'mr'],
+  3: ['ml', 'tl', 'tr'],
+  4: ['ml', 'tl', 'tr', 'mr'],
+  5: ['ml', 'tl', 'tcl', 'tr', 'mr'],
 }
 
 export default function Game() {
@@ -83,7 +96,6 @@ export default function Game() {
     if (!playerId) navigate('/')
   }, [playerId, navigate])
 
-  // Auto-dismiss game error toast after 3 s
   useEffect(() => {
     if (!gameError) return
     const t = setTimeout(() => setGameError(null), 3000)
@@ -101,15 +113,13 @@ export default function Game() {
     reconnect()
   }
 
-  // ── Game over (permanent screen) ─────────────────────────────────────────
   if (gameResult) {
     return <GameOver result={gameResult} players={gameState?.players ?? []} />
   }
 
-  // ── Disconnected overlay ──────────────────────────────────────────────────
   if (!wsConnected) {
     return (
-      <>
+      <div className="h-full w-full ds-stage">
         {gameState && roundState && (
           <GameView
             gameState={gameState}
@@ -121,37 +131,31 @@ export default function Game() {
           />
         )}
         <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-80 p-4">
-          <div className="bg-gray-800 rounded-2xl p-6 w-full max-w-xs text-center space-y-4">
+          <div className="ds-panel rounded-2xl p-6 w-full max-w-xs text-center space-y-4">
             <div className="animate-pulse text-3xl">📡</div>
-            <p className="text-white font-semibold">
-              {wsError ?? 'Reconnecting...'}
+            <p className="text-white font-display font-semibold">
+              {wsError ?? 'Reconnecting…'}
             </p>
-            <p className="text-gray-400 text-sm">
-              Your game is still running. Please wait.
-            </p>
-            <button
-              onClick={handleReconnect}
-              className="w-full bg-purple-600 hover:bg-purple-500 active:bg-purple-700 text-white font-semibold py-3 rounded-lg transition-colors"
-            >
+            <p className="text-ink-dim text-sm">Your game is still running. Please wait.</p>
+            <button onClick={handleReconnect} className="ds-btn purple w-full">
               Retry Now
             </button>
           </div>
         </div>
-      </>
+      </div>
     )
   }
 
-  // ── Loading (first connect, state not yet arrived) ────────────────────────
   if (!gameState || !roundState) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <p className="text-gray-400">Connecting...</p>
+      <div className="h-full w-full ds-stage flex items-center justify-center">
+        <p className="text-ink-dim font-display animate-pulse">Connecting…</p>
       </div>
     )
   }
 
   return (
-    <>
+    <div className="h-full w-full">
       <GameView
         gameState={gameState}
         roundState={roundState}
@@ -171,17 +175,16 @@ export default function Game() {
         />
       )}
 
-      {/* Game error toast — auto-dismissed after 3 s */}
       {gameError && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-90 px-4 py-2 bg-red-900/90 border border-red-500/60 text-red-200 text-sm font-medium rounded-xl shadow-lg max-w-xs text-center pointer-events-none">
           {gameError}
         </div>
       )}
-    </>
+    </div>
   )
 }
 
-// ── Pure view: renders the game table, no store subscriptions ────────────────
+// ── Pure view: the stage ─────────────────────────────────────────────────────
 
 interface GameViewProps {
   gameState: GameState
@@ -200,8 +203,8 @@ function GameView({
   onBid,
   suppressModals = false,
 }: GameViewProps) {
-  const [dragActive, setDragActive] = useState(false)
   const [dragInZone, setDragInZone] = useState(false)
+  const [dragActive, setDragActive] = useState(false)
 
   function handleDragChange(isDragging: boolean, inPlayZone: boolean) {
     setDragActive(isDragging)
@@ -218,7 +221,7 @@ function GameView({
       ? getPlayableCards(roundState.hand, roundState.current_trick)
       : null
 
-  // Last-bidder rule: when all others have bid, compute the one forbidden value
+  // Last-bidder rule
   const submittedBids = Object.values(roundState.bids).filter((v) => v !== null) as number[]
   const isLastBidder = myBidPending && submittedBids.length === gameState.num_players - 1
   const forbiddenBid = (() => {
@@ -227,29 +230,65 @@ function GameView({
     return f >= 0 && f <= gameState.current_round ? f : null
   })()
 
-  const trumpDisplay =
-    SUIT_DISPLAY[gameState.trump_suit ?? 'none'] ?? gameState.trump_suit ?? '—'
+  // Leader (highest total score), only if anyone is above 0
+  const topScore = Math.max(0, ...gameState.players.map((p) => p.total_score))
+  const leaderId =
+    topScore > 0 ? gameState.players.find((p) => p.total_score === topScore)?.id : undefined
+
+  // Opponents ordered by seat, starting right after me
+  const mySeat = gameState.players.find((p) => p.id === playerId)?.seat_order ?? 0
+  const sorted = [...gameState.players].sort((a, b) => a.seat_order - b.seat_order)
+  const opponents: PlayerInfo[] = []
+  for (let k = 1; k < sorted.length; k++) {
+    opponents.push(sorted[(mySeat + k) % sorted.length])
+  }
+  const slots = LAYOUTS[opponents.length] ?? LAYOUTS[5]
+
+  const trumpSuit = gameState.trump_suit ?? 'none'
+  const trumpSym = SUIT_SYMBOL[trumpSuit] ?? null
+
+  const currentName = gameState.players[gameState.current_player_seat]?.nickname ?? null
 
   return (
-    <div className="min-h-screen bg-gray-900 flex flex-col">
-      {/* Top bar */}
-      <div className="flex items-center justify-between px-4 py-3 bg-gray-800 border-b border-gray-700 pt-safe">
-        <div className="text-sm text-gray-400">
-          Round{' '}
-          <span className="text-white font-bold">{gameState.current_round}</span>
-          <span className="text-gray-600">/{gameState.total_rounds}</span>
+    <div className="ds-stage h-full w-full">
+      {/* Round counter */}
+      <div className="absolute top-[3%] left-1/2 -translate-x-1/2 z-[6] flex flex-col items-center pt-safe">
+        <div className="ds-round-label">ROUND</div>
+        <div className="ds-round-num">{gameState.current_round}</div>
+        <div className="ds-round-label opacity-70" style={{ letterSpacing: '0.1em' }}>
+          of {gameState.total_rounds}
         </div>
-        <div className="text-sm text-center leading-tight">
-          <div>
-            <span className="text-gray-500">Trump </span>
-            <span className="font-bold text-yellow-400">{trumpDisplay}</span>
+      </div>
+
+      {/* Trump chip */}
+      <div className="ds-trump pt-safe">
+        <div
+          className="grid place-items-center rounded-lg font-display"
+          style={{
+            width: 'clamp(26px,3.4vmax,42px)',
+            aspectRatio: '1',
+            fontSize: 'clamp(16px,2.2vmax,28px)',
+            background: '#fbf6ee',
+            color: isRedSuit(trumpSuit) ? 'var(--suit-red)' : 'var(--suit-dark)',
+            border: '1px solid rgba(0,0,0,.18)',
+          }}
+        >
+          {trumpSym ?? '∅'}
+        </div>
+        <div className="leading-tight">
+          <div className="font-display text-neon-yellow" style={{ fontSize: 'clamp(11px,1.4vmax,16px)' }}>
+            {SUIT_LABEL[trumpSuit] ?? trumpSuit}
           </div>
           {gameState.trump_card && (
-            <div className="text-xs text-gray-500">
+            <div className="text-ink-dim" style={{ fontSize: 'clamp(8px,1vmax,12px)' }}>
               {formatTrumpCard(gameState.trump_card)} flipped
             </div>
           )}
         </div>
+      </div>
+
+      {/* Scores button (top-right) */}
+      <div className="absolute top-[3.5%] right-[2.5%] z-[6] pt-safe">
         <Scoreboard
           players={gameState.players}
           tricksWon={roundState.tricks_won}
@@ -257,73 +296,90 @@ function GameView({
         />
       </div>
 
-      {/* Always-visible player strip */}
-      <PlayerStrip
-        players={gameState.players}
-        currentPlayerSeat={gameState.current_player_seat}
-        playerId={playerId}
-        bids={roundState.bids}
-        tricksWon={roundState.tricks_won}
-        phase={gameState.current_phase}
-      />
+      {/* Opponents around the table */}
+      {opponents.map((opp, i) => {
+        const slot = slots[i] ?? 'tl'
+        return (
+          <PlayerHud
+            key={opp.id}
+            player={opp}
+            isActive={opp.seat_order === gameState.current_player_seat}
+            isLeader={opp.id === leaderId}
+            isMe={false}
+            bid={roundState.bids[opp.id] ?? null}
+            tricks={roundState.tricks_won[opp.id] ?? 0}
+            phase={gameState.current_phase}
+            reverse={RIGHT_SLOTS.has(slot)}
+            style={SLOT_POS[slot]}
+          />
+        )
+      })}
 
-      {/* "Your turn" banner */}
-      {myTurn && isPlaying && (
-        <div className="flex justify-center px-4 pt-2">
-          <span className="animate-pulse bg-green-500/20 border border-green-500/40 text-green-400 text-xs font-semibold px-4 py-1.5 rounded-full tracking-wide">
-            Your turn to play a card
-          </span>
-        </div>
-      )}
-
-      {/* Center area — also serves as the drag-to-play drop zone */}
-      <div
-        className={`flex-1 flex items-center justify-center p-4 min-h-0 rounded-lg transition-all duration-150 ${
-          dragActive && isPlaying
-            ? dragInZone
-              ? 'ring-2 ring-green-400 bg-green-500/10'
-              : 'ring-2 ring-dashed ring-gray-600 bg-gray-800/30'
-            : ''
-        }`}
-      >
+      {/* Center: trick area or bidding prompt + drop-zone glow */}
+      <div className="absolute top-[48%] left-1/2 -translate-x-1/2 -translate-y-1/2 z-[4] grid place-items-center">
+        {dragActive && isPlaying && (
+          <div
+            className="absolute rounded-full transition-all duration-150 pointer-events-none"
+            style={{
+              width: 'clamp(160px,34vmax,420px)',
+              aspectRatio: '1',
+              boxShadow: dragInZone
+                ? '0 0 0 3px #B9A0E8, 0 0 50px rgba(139,111,201,.5)'
+                : '0 0 0 2px rgba(194,170,136,.4)',
+            }}
+          />
+        )}
         {isBidding ? (
-          <div className="text-center space-y-2">
-            <p className="text-gray-400 text-sm">
-              {myBidPending && myTurn
-                ? 'Place your bid'
-                : 'Waiting for all players to bid...'}
+          <div className="text-center">
+            <div className="ds-round-label">BIDDING</div>
+            <p className="font-display text-ink mt-1" style={{ fontSize: 'clamp(13px,1.8vmax,22px)' }}>
+              {myBidPending ? 'Place your bid' : `Waiting for ${currentName}…`}
             </p>
           </div>
         ) : (
-          <>
-            {dragActive && isPlaying && (
-              <p className={`absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 text-sm font-semibold pointer-events-none z-10 transition-colors ${dragInZone ? 'text-green-400' : 'text-gray-500'}`}>
-                {dragInZone ? 'Release to play!' : 'Drag here to play'}
-              </p>
-            )}
-            <TrickArea
-              trick={roundState.current_trick}
-              players={gameState.players}
-              lastWinner={roundState.last_trick_winner}
-              trickWinnerId={roundState.trick_winner_id}
-              currentPlayerName={
-                gameState.players[gameState.current_player_seat]?.nickname ?? null
-              }
-            />
-          </>
+          <TrickArea
+            trick={roundState.current_trick}
+            players={gameState.players}
+            lastWinner={roundState.last_trick_winner}
+            trickWinnerId={roundState.trick_winner_id}
+            currentPlayerName={currentName}
+          />
         )}
       </div>
 
-      {/* Player hand */}
-      <Hand
-        cards={roundState.hand}
-        onPlay={onPlayCard}
-        myTurn={myTurn && isPlaying}
-        playableCards={playableCards}
-        onDragChange={handleDragChange}
-      />
+      {/* Your-turn indicator */}
+      {myTurn && isPlaying && (
+        <div
+          className="absolute left-1/2 -translate-x-1/2 z-[6] flex items-center gap-2 px-4 py-1.5 rounded-full font-display"
+          style={{
+            bottom: 'clamp(150px,33vh,360px)',
+            background: 'rgba(139,111,201,.16)',
+            border: '1px solid rgba(185,160,232,.55)',
+            color: '#d7c6f2',
+            fontSize: 'clamp(11px,1.5vmax,17px)',
+            boxShadow: '0 0 18px rgba(139,111,201,.35)',
+            animation: 'ds-pulse 1.6s ease-in-out infinite',
+          }}
+        >
+          ● Your turn
+        </div>
+      )}
 
-      {/* Overlays — suppressed while round summary is showing */}
+      {/* Hand */}
+      <div
+        className="absolute bottom-[1.5%] left-1/2 -translate-x-1/2 z-[7]"
+        style={{ width: 'min(94%, 760px)', height: 'clamp(120px,30vh,260px)' }}
+      >
+        <Hand
+          cards={roundState.hand}
+          onPlay={onPlayCard}
+          myTurn={myTurn && isPlaying}
+          playableCards={playableCards}
+          onDragChange={handleDragChange}
+        />
+      </div>
+
+      {/* Bid modal overlay */}
       {myBidPending && myTurn && !suppressModals && (
         <BidModal
           roundNumber={gameState.current_round}

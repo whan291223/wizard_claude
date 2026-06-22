@@ -20,7 +20,7 @@ interface DragState {
 }
 
 const DRAG_THRESHOLD = 8  // px before a press becomes a drag
-const PLAY_ZONE = 0.52    // upper 52% of screen height = play zone
+const PLAY_ZONE = 0.55    // upper 55% of screen height = play zone
 
 export default function Hand({
   cards,
@@ -48,7 +48,6 @@ export default function Hand({
   }
 
   const cardElRefs = useRef<Record<string, HTMLDivElement | null>>({})
-  const prevCards = cards.join(',')
 
   const canPlay = (card: string) => !playableCards || playableCards.has(card)
   const inPlayZone = drag ? drag.clientY < window.innerHeight * PLAY_ZONE : false
@@ -101,8 +100,8 @@ export default function Hand({
         onPlayRef.current(d.card)
       }
     } else {
-      // No movement = a tap/click. selectedRef wasn't touched by this gesture, so it
-      // reflects the selection BEFORE the tap: same card already selected → play; else select.
+      // No movement = a tap/click. selectedRef reflects the selection BEFORE this tap:
+      // same card already selected → play; otherwise select it.
       if (selectedRef.current === d.card) {
         setSel(null)
         onPlayRef.current(d.card)
@@ -119,8 +118,7 @@ export default function Hand({
     startDrag(card, e.pointerId, e.clientX, e.clientY)
   }
 
-  // Global listeners registered once; they read dragRef so they never go stale,
-  // and they're present before any pointerup so fast clicks aren't missed.
+  // Global listeners registered once; they read dragRef so they never go stale.
   useEffect(() => {
     function onPointerMove(e: PointerEvent) {
       const d = dragRef.current
@@ -142,71 +140,67 @@ export default function Hand({
     }
   }, [])
 
-  const overlap = cards.length > 7
+  const n = cards.length
+  // Fan geometry: cap the total arc so big hands still fit
+  const spread = n > 1 ? Math.min(5.5, 56 / (n - 1)) : 0
+  const startAngle = -((n - 1) / 2) * spread
 
   let hint = ''
   if (myTurn) {
     if (drag?.moved && inPlayZone) hint = 'Release to play!'
-    else if (drag?.moved) hint = 'Drag up to the center to play'
-    else if (selected) hint = 'Tap again to play · or drag it up'
-    else hint = 'Tap a card to select'
-  } else {
-    hint = 'Your hand'
+    else if (drag?.moved) hint = 'Drag up to the center'
+    else if (selected) hint = 'Tap again — or drag up — to play'
+    else hint = 'Tap a card to pick it'
   }
 
   return (
-    <div className="bg-gray-800/90 border-t border-gray-700 pb-safe select-none">
-      <p className="text-gray-500 text-xs text-center pt-2 pb-1 px-4 min-h-[1.5rem]">
-        {hint}
-      </p>
-
-      <div className="overflow-x-auto">
+    <div className="relative w-full h-full select-none">
+      {hint && (
         <div
-          className="flex px-4 pb-4 justify-center"
-          style={{ gap: overlap ? '0px' : '6px' }}
-          key={prevCards}
+          className="absolute left-1/2 -translate-x-1/2 top-0 font-display text-ink-dim text-center whitespace-nowrap"
+          style={{ fontSize: 'clamp(10px,1.3vmax,15px)' }}
         >
-          {cards.map((card, i) => {
-            const isDragging = drag?.card === card
-            const isSelected = selected === card
-            const playable = canPlay(card)
-
-            return (
-              <div
-                key={card}
-                ref={(el) => { cardElRefs.current[card] = el }}
-                className="relative flex-shrink-0"
-                style={{
-                  marginLeft: overlap && i > 0 ? '-20px' : undefined,
-                  zIndex: isSelected || isDragging ? 50 : i,
-                  // Ghost while dragging; selected lifts up; unplayable fades
-                  opacity: isDragging ? 0.25 : !playable ? 0.35 : 1,
-                  transform: isDragging ? undefined : isSelected ? 'translateY(-18px)' : undefined,
-                  transition: isDragging ? 'none' : 'transform 0.15s ease-out, opacity 0.15s',
-                  // Prevent the browser from scrolling/selecting while dragging a playable card
-                  touchAction: myTurn && playable ? 'none' : 'auto',
-                }}
-                onPointerDown={(e) => onPointerDown(e, card)}
-              >
-                <div
-                  className={`rounded-lg ${isSelected && !isDragging ? 'ring-2 ring-purple-400' : ''}`}
-                  // The inner button shouldn't capture the pointer — the wrapper owns the gesture
-                  style={{ pointerEvents: 'none' }}
-                >
-                  <Card
-                    card={card}
-                    size="lg"
-                    disabled={!myTurn || !playable}
-                  />
-                </div>
-              </div>
-            )
-          })}
-
-          {cards.length === 0 && (
-            <p className="text-gray-600 text-sm py-4">No cards in hand</p>
-          )}
+          {hint}
         </div>
+      )}
+
+      {/* Fanned hand anchored to the bottom-center */}
+      <div className="absolute bottom-0 left-0 right-0 top-[clamp(14px,2.4vmax,30px)]">
+        {cards.map((card, i) => {
+          const isDragging = drag?.card === card
+          const isSelected = selected === card
+          const playable = canPlay(card)
+          const angle = startAngle + i * spread
+
+          const baseTransform = `translateX(-50%) rotate(${angle}deg)`
+          const liftTransform = `translateX(-50%) translateY(-18px) rotate(${angle}deg)`
+
+          return (
+            <div
+              key={card}
+              ref={(el) => { cardElRefs.current[card] = el }}
+              className="absolute bottom-0 left-1/2"
+              style={{
+                transformOrigin: '50% 340%',
+                transform: isSelected && !isDragging ? liftTransform : baseTransform,
+                zIndex: isSelected || isDragging ? 60 : i,
+                opacity: isDragging ? 0.22 : !playable ? 0.4 : 1,
+                transition: isDragging ? 'none' : 'transform 0.15s ease-out, opacity 0.15s',
+                touchAction: myTurn && playable ? 'none' : 'auto',
+                filter: isSelected && !isDragging ? 'drop-shadow(0 10px 16px rgba(0,0,0,.55))' : undefined,
+              }}
+              onPointerDown={(e) => onPointerDown(e, card)}
+            >
+              <Card card={card} size="lg" disabled={!myTurn || !playable} />
+            </div>
+          )
+        })}
+
+        {n === 0 && (
+          <p className="absolute left-1/2 -translate-x-1/2 bottom-2 text-ink-dim text-sm font-ui">
+            No cards
+          </p>
+        )}
       </div>
 
       {/* Floating card that follows finger / mouse during drag */}
@@ -217,11 +211,11 @@ export default function Hand({
             left: drag.clientX - drag.cardW / 2,
             top: drag.clientY - drag.cardH / 2,
             zIndex: 200,
-            transform: inPlayZone ? 'scale(1.12)' : 'scale(1)',
+            transform: inPlayZone ? 'scale(1.14)' : 'scale(1)',
             transition: 'transform 0.1s ease-out',
           }}
         >
-          <div className={inPlayZone ? 'ring-4 ring-green-400 rounded-xl shadow-2xl shadow-green-500/50' : 'shadow-xl'}>
+          <div className={inPlayZone ? 'ring-4 ring-glow-cyan rounded-xl shadow-2xl' : 'shadow-xl rounded-xl'}>
             <Card card={drag.card} size="lg" />
           </div>
         </div>

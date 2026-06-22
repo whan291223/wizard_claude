@@ -24,34 +24,32 @@ export default function GameOver({ result, players }: GameOverProps) {
   const medals = ['🥇', '🥈', '🥉']
 
   return (
-    <div className="fixed inset-0 bg-gray-900 flex flex-col items-center justify-center z-70 p-4 pt-safe">
-      <div className="w-full max-w-sm space-y-6">
+    <div className="fixed inset-0 ds-stage flex flex-col items-center justify-center z-70 p-4 pt-safe">
+      <div className="relative w-full max-w-sm space-y-6">
         <div className="text-center space-y-1">
-          <p className="text-4xl">🧙</p>
-          <h1 className="text-3xl font-bold text-purple-400">Game Over</h1>
+          <p className="text-5xl">🧙</p>
+          <h1 className="text-3xl font-display font-bold text-neon-yellow"
+            style={{ textShadow: '0 0 18px rgba(255,216,61,.5)' }}>
+            Game Over
+          </h1>
         </div>
 
-        <div className="bg-gray-800 rounded-2xl p-5 space-y-3">
+        <div className="ds-panel rounded-2xl p-5 space-y-3">
           {ranked.map((p, i) => (
             <div
               key={p.id}
-              className={`flex items-center gap-3 ${i === 0 ? 'text-yellow-300' : 'text-white'}`}
+              className={`flex items-center gap-3 font-ui ${i === 0 ? 'text-neon-yellow' : 'text-white'}`}
             >
-              <span className="text-xl w-8 text-center">
-                {medals[i] ?? `${i + 1}.`}
-              </span>
-              <span className="flex-1 font-semibold">{p.nickname}</span>
-              <span className={`font-bold text-lg ${i === 0 ? 'text-yellow-300' : 'text-purple-400'}`}>
+              <span className="text-xl w-8 text-center">{medals[i] ?? `${i + 1}.`}</span>
+              <span className="flex-1 font-display font-semibold">{p.nickname}</span>
+              <span className={`font-display font-bold text-lg ${i === 0 ? 'text-neon-yellow' : 'text-glow-cyan'}`}>
                 {result.final_scores[p.id] ?? 0}
               </span>
             </div>
           ))}
         </div>
 
-        <button
-          onClick={handlePlayAgain}
-          className="w-full bg-purple-600 hover:bg-purple-500 active:bg-purple-700 text-white font-bold py-4 rounded-xl text-lg transition-colors"
-        >
+        <button onClick={handlePlayAgain} className="ds-btn purple w-full !text-lg !py-4">
           Play Again
         </button>
       </div>

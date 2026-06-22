@@ -5,51 +5,41 @@ const SUIT_SYMBOLS: Record<string, string> = {
   S: '♠',
 }
 
-const SUIT_COLORS: Record<string, string> = {
-  C: 'text-gray-800',
-  D: 'text-red-600',
-  H: 'text-red-600',
-  S: 'text-gray-800',
-}
+type CardKind = 'normal' | 'wizard' | 'jester'
 
 interface ParsedCard {
+  kind: CardKind
   rank: string
-  suit: string
   symbol: string
-  color: string
-  bgClass: string
-  borderClass: string
-  isSpecial: boolean
+  colorClass: 'red' | 'dark' | ''
   label: string
 }
 
 function parseCard(card: string): ParsedCard {
   if (card.startsWith('W')) {
-    return {
-      rank: 'W', suit: '', symbol: '✦', color: 'text-yellow-300',
-      bgClass: 'bg-yellow-950', borderClass: 'border-yellow-500',
-      isSpecial: true, label: 'WIZARD',
-    }
+    return { kind: 'wizard', rank: '', symbol: '✦', colorClass: '', label: 'Wizard' }
   }
   if (card.startsWith('N')) {
-    return {
-      rank: 'N', suit: '', symbol: '★', color: 'text-gray-400',
-      bgClass: 'bg-gray-800', borderClass: 'border-gray-500',
-      isSpecial: true, label: 'JESTER',
-    }
+    return { kind: 'jester', rank: '', symbol: '★', colorClass: '', label: 'Jester' }
   }
   const suit = card[0]
   const rank = card.slice(1)
+  const symbol = SUIT_SYMBOLS[suit] ?? suit
+  const isRed = suit === 'D' || suit === 'H'
   return {
+    kind: 'normal',
     rank,
-    suit,
-    symbol: SUIT_SYMBOLS[suit] ?? suit,
-    color: SUIT_COLORS[suit] ?? 'text-gray-800',
-    bgClass: 'bg-white',
-    borderClass: 'border-gray-300',
-    isSpecial: false,
-    label: `${rank}${SUIT_SYMBOLS[suit] ?? suit}`,
+    symbol,
+    colorClass: isRed ? 'red' : 'dark',
+    label: `${rank}${symbol}`,
   }
+}
+
+// width clamps scale with the viewport (vmax = larger axis, so portrait scales off height); height follows 5:7
+const WIDTH: Record<NonNullable<CardProps['size']>, string> = {
+  sm: 'clamp(28px, 4vmax, 52px)',
+  md: 'clamp(34px, 5.2vmax, 64px)',
+  lg: 'clamp(40px, 6vmax, 80px)',
 }
 
 interface CardProps {
@@ -69,62 +59,73 @@ export default function Card({
   faceDown,
   selected,
 }: CardProps) {
-  const sizeClasses = {
-    sm: 'w-10 h-14 text-xs',
-    md: 'w-12 h-17 text-sm',
-    lg: 'w-14 h-20 text-base',
-  }
-  const rankSize = {
-    sm: 'text-xs',
-    md: 'text-sm',
-    lg: 'text-base',
-  }
-  const suitSize = {
-    sm: 'text-base',
-    md: 'text-xl',
-    lg: 'text-2xl',
-  }
+  const width = WIDTH[size]
 
   if (faceDown) {
     return (
       <div
-        className={`${sizeClasses[size]} rounded-lg border-2 border-gray-600 bg-gray-700 flex items-center justify-center select-none`}
-      >
-        <span className="text-gray-500">🂠</span>
-      </div>
+        className="rounded-lg border border-panel-edge select-none"
+        style={{
+          width,
+          aspectRatio: '5 / 7',
+          background: 'repeating-linear-gradient(45deg,#5a4330,#5a4330 6px,#3c2a1b 6px,#3c2a1b 12px)',
+        }}
+      />
     )
   }
 
-  const { rank, symbol, color, bgClass, borderClass, isSpecial, label } = parseCard(card)
+  const { kind, rank, symbol, colorClass, label } = parseCard(card)
   const interactive = !!onClick && !disabled
+
+  const cornerFont = `clamp(9px, 1.4vmax, 16px)`
+  const midFont = `clamp(15px, 2.4vmax, 30px)`
+  const specialFont = `clamp(18px, 3vmax, 38px)`
+
+  const content =
+    kind === 'normal' ? (
+      <>
+        <div className="corner px-1 pt-0.5" style={{ fontSize: cornerFont }}>
+          <div>{rank}</div>
+          <div>{symbol}</div>
+        </div>
+        <div className="mid" style={{ fontSize: midFont }}>
+          {symbol}
+        </div>
+        <div className="corner br px-1 pb-0.5" style={{ fontSize: cornerFont }}>
+          <div>{rank}</div>
+          <div>{symbol}</div>
+        </div>
+      </>
+    ) : (
+      <div className="special-mark" style={{ fontSize: specialFont }}>
+        <div className="flex flex-col items-center leading-tight">
+          <span>{symbol}</span>
+          <span style={{ fontSize: cornerFont, letterSpacing: '0.08em', opacity: 0.95 }}>
+            {kind === 'wizard' ? 'WIZ' : 'JST'}
+          </span>
+        </div>
+      </div>
+    )
+
+  const className = [
+    'ds-card',
+    kind === 'normal' ? colorClass : kind,
+    interactive ? 'cursor-pointer' : 'cursor-default',
+    disabled ? 'opacity-40' : '',
+    selected ? 'ring-2 ring-glow-purple' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
 
   return (
     <button
       onClick={onClick}
       disabled={disabled || !onClick}
       aria-label={label}
-      className={`
-        ${sizeClasses[size]} rounded-lg border-2 font-bold select-none
-        ${bgClass} ${borderClass}
-        ${color}
-        flex flex-col items-start justify-between p-1
-        transition-transform duration-100
-        ${interactive ? 'active:scale-95 cursor-pointer touch-manipulation' : 'cursor-default'}
-        ${selected ? '-translate-y-3 ring-2 ring-purple-400' : ''}
-        ${disabled ? 'opacity-40' : ''}
-      `}
+      className={className}
+      style={{ width, aspectRatio: '5 / 7' }}
     >
-      {isSpecial ? (
-        <div className="w-full h-full flex items-center justify-center">
-          <span className={`${suitSize[size]} leading-none`}>{symbol}</span>
-        </div>
-      ) : (
-        <>
-          <span className={`${rankSize[size]} leading-none font-bold`}>{rank}</span>
-          <span className={`${suitSize[size]} leading-none self-center`}>{symbol}</span>
-          <span className={`${rankSize[size]} leading-none self-end rotate-180`}>{rank}</span>
-        </>
-      )}
+      {content}
     </button>
   )
 }

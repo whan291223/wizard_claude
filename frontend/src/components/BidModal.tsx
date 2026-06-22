@@ -54,55 +54,54 @@ export default function BidModal({
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-800 rounded-2xl p-6 w-full max-w-xs space-y-5">
-        <h2 className="text-xl font-bold text-white text-center">
+      <div className="ds-panel rounded-2xl p-6 w-full max-w-xs space-y-5 font-ui">
+        <h2 className="text-xl font-display font-bold text-white text-center">
           Round {roundNumber} — Place your bid
         </h2>
-        <p className="text-gray-400 text-sm text-center">
+        <p className="text-ink-dim text-sm text-center">
           How many tricks will you win? (0–{maxBid})
         </p>
 
         {pastBids.length > 0 && (
-          <div className="bg-gray-700/60 rounded-xl px-4 py-3 space-y-1.5">
-            <p className="text-gray-500 text-xs uppercase tracking-wider mb-2">Bids so far</p>
+          <div className="bg-black/25 border border-panel-edge rounded-xl px-4 py-3 space-y-1.5">
+            <p className="text-ink-dim text-xs uppercase tracking-wider mb-2">Bids so far</p>
             {pastBids.map(({ nickname, bid: b }) => (
               <div key={nickname} className="flex justify-between items-center">
-                <span className="text-gray-300 text-sm">{nickname}</span>
-                <span className="text-white font-semibold text-sm">{b}</span>
+                <span className="text-ink-dim text-sm">{nickname}</span>
+                <span className="text-white font-semibold text-sm font-display">{b}</span>
               </div>
             ))}
           </div>
         )}
 
-        <div className="flex items-center justify-center gap-4">
+        <div className="flex items-center justify-center gap-5">
           <button
             onClick={decrement}
             disabled={prevValid === null}
-            className="w-12 h-12 rounded-full bg-gray-700 hover:bg-gray-600 disabled:opacity-30 disabled:cursor-not-allowed text-white text-2xl font-bold transition-colors"
+            className="ds-iconbtn !w-12 !h-12 !text-2xl !text-white disabled:opacity-30 disabled:cursor-not-allowed"
           >
             −
           </button>
-          <span className="text-4xl font-bold text-white w-12 text-center">{bid}</span>
+          <span className="text-5xl font-display font-bold text-neon-yellow w-16 text-center"
+            style={{ textShadow: '0 0 16px rgba(255,216,61,.5)' }}>
+            {bid}
+          </span>
           <button
             onClick={increment}
             disabled={nextValid === null}
-            className="w-12 h-12 rounded-full bg-gray-700 hover:bg-gray-600 disabled:opacity-30 disabled:cursor-not-allowed text-white text-2xl font-bold transition-colors"
+            className="ds-iconbtn !w-12 !h-12 !text-2xl !text-white disabled:opacity-30 disabled:cursor-not-allowed"
           >
             +
           </button>
         </div>
 
         {forbiddenBid !== null && (
-          <p className="text-yellow-500 text-xs text-center">
+          <p className="text-neon-yellow text-xs text-center">
             Bid <span className="font-bold">{forbiddenBid}</span> is not allowed — total bids can't equal {roundNumber}
           </p>
         )}
 
-        <button
-          onClick={() => onBid(bid)}
-          disabled={isConfirmDisabled}
-          className="w-full bg-purple-600 hover:bg-purple-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg transition-colors"
-        >
+        <button onClick={() => onBid(bid)} disabled={isConfirmDisabled} className="ds-btn purple w-full">
           Confirm bid: {bid}
         </button>
       </div>

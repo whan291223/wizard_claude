@@ -49,7 +49,7 @@ export function useGameWS(roomCode: string | null, playerId: string | null) {
       }
     }
 
-    socket.onclose = (event) => {
+    socket.onclose = () => {
       if (ws.current === socket) ws.current = null
       useGameStore.getState().setWsConnected(false)
       if (!intentionalClose) {

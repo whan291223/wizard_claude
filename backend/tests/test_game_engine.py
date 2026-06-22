@@ -69,17 +69,27 @@ class TestStartRound:
         assert gs.trump_suit == "H"
         assert gs.trump_card == "H7"
 
-    def test_trump_suit_pending_when_wizard_flipped(self):
-        deck = padded_deck("C2", "D3", "S4", "W1")
+    def test_wizard_flip_reflips_to_next_suited_card(self):
+        # Wizard at the flip position is burned; the next suited card sets trump
+        deck = padded_deck("C2", "D3", "S4", "W1", "H7")
         gs = make_game(3)
         gs.start_round(1, 0, deck=deck)
-        assert gs.trump_suit == "pending"
+        assert gs.trump_suit == "H"
+        assert gs.trump_card == "H7"
 
-    def test_trump_suit_none_when_jester_flipped(self):
-        deck = padded_deck("C2", "D3", "S4", "N1")
+    def test_jester_flip_reflips_to_next_suited_card(self):
+        deck = padded_deck("C2", "D3", "S4", "N1", "S9")
         gs = make_game(3)
         gs.start_round(1, 0, deck=deck)
-        assert gs.trump_suit == "none"
+        assert gs.trump_suit == "S"
+        assert gs.trump_card == "S9"
+
+    def test_multiple_specials_burned_until_suited(self):
+        deck = padded_deck("C2", "D3", "S4", "W1", "N1", "W2", "D9")
+        gs = make_game(3)
+        gs.start_round(1, 0, deck=deck)
+        assert gs.trump_suit == "D"
+        assert gs.trump_card == "D9"
 
     def test_first_bidder_is_left_of_dealer(self):
         gs = make_game(3)

@@ -19,18 +19,18 @@ export default function RoundResult({
   const isLastRound = roundNumber >= totalRounds
 
   return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-60 p-4">
-      <div className="bg-gray-800 rounded-2xl p-6 w-full max-w-sm space-y-5">
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4">
+      <div className="ds-panel rounded-2xl p-6 w-full max-w-sm space-y-5 font-ui">
         <div className="text-center">
-          <p className="text-gray-400 text-xs uppercase tracking-wider">
+          <p className="text-ink-dim text-xs uppercase tracking-wider">
             Round {roundNumber} of {totalRounds}
           </p>
-          <h2 className="text-xl font-bold text-white mt-1">Round Complete</h2>
+          <h2 className="text-xl font-display font-bold text-white mt-1">Round Complete</h2>
         </div>
 
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-gray-400 text-xs uppercase">
+            <tr className="text-ink-dim text-xs uppercase">
               <th className="text-left py-1">Player</th>
               <th className="text-right py-1">Won/Bid</th>
               <th className="text-right py-1">Score</th>
@@ -46,15 +46,15 @@ export default function RoundResult({
               const hit = won === bid
               const positive = delta >= 0
               return (
-                <tr key={p.id} className="border-t border-gray-700">
+                <tr key={p.id} className="border-t border-panel-edge">
                   <td className="py-2 text-white">{p.nickname}</td>
-                  <td className={`py-2 text-right font-semibold ${hit ? 'text-green-400' : 'text-red-400'}`}>
+                  <td className={`py-2 text-right font-semibold font-display ${hit ? 'text-glow-cyan' : 'text-suit-red'}`}>
                     {won}/{bid}
                   </td>
-                  <td className={`py-2 text-right font-semibold ${positive ? 'text-green-400' : 'text-red-400'}`}>
+                  <td className={`py-2 text-right font-semibold ${positive ? 'text-glow-cyan' : 'text-suit-red'}`}>
                     {positive ? '+' : ''}{delta}
                   </td>
-                  <td className="py-2 text-right font-bold text-purple-400">
+                  <td className="py-2 text-right font-bold text-neon-yellow font-display">
                     {total}
                   </td>
                 </tr>
@@ -63,10 +63,7 @@ export default function RoundResult({
           </tbody>
         </table>
 
-        <button
-          onClick={onContinue}
-          className="w-full bg-purple-600 hover:bg-purple-500 active:bg-purple-700 text-white font-semibold py-3 rounded-lg transition-colors"
-        >
+        <button onClick={onContinue} className="ds-btn purple w-full">
           {isLastRound ? 'See Final Results' : 'Next Round'}
         </button>
       </div>

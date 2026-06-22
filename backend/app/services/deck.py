@@ -43,12 +43,25 @@ def get_rank_value(card: str) -> int:
 
 
 def deal(deck: list[str], num_players: int, round_number: int) -> tuple[list[list[str]], str | None]:
-    """Returns (hands, trump_card). trump_card is None if deck exhausted."""
+    """Returns (hands, trump_card).
+
+    The trump card is found by flipping the next card after dealing; if it is a
+    Wizard or Jester we keep flipping until a normal suited card turns up (those
+    flipped specials are simply burned). trump_card is None only if the deck runs
+    out of cards before a suited one is found — then the round has no trump.
+    """
     hands: list[list[str]] = [[] for _ in range(num_players)]
     idx = 0
     for _ in range(round_number):
         for p in range(num_players):
             hands[p].append(deck[idx])
             idx += 1
-    trump_card = deck[idx] if idx < len(deck) else None
+
+    trump_card: str | None = None
+    while idx < len(deck):
+        candidate = deck[idx]
+        idx += 1
+        if not is_wizard(candidate) and not is_jester(candidate):
+            trump_card = candidate
+            break
     return hands, trump_card

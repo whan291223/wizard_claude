@@ -3,8 +3,6 @@ Core game logic — Phase 2 implementation.
 Handles: deal, bidding phase, trick-taking resolution, round scoring.
 """
 
-import random
-
 from app.services.deck import (
     build_deck,
     deal,
@@ -67,10 +65,10 @@ class GameState:
         self.hands = {pid: hands_list[i] for i, pid in enumerate(player_order)}
         self.trump_card = trump_card
 
-        if trump_card is None or is_jester(trump_card):
+        # deal() already skipped any flipped Wizard/Jester and gave us the first
+        # suited card (or None if the deck ran out), so the suit follows directly.
+        if trump_card is None:
             self.trump_suit = "none"
-        elif is_wizard(trump_card):
-            self.trump_suit = random.choice(["C", "D", "H", "S"])
         else:
             self.trump_suit = get_suit(trump_card)
 
