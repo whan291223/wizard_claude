@@ -30,8 +30,8 @@ export function useGameWS(roomCode: string | null, playerId: string | null) {
 
     let intentionalClose = false
     let retryTimer: ReturnType<typeof setTimeout> | null = null
-
-    const url = `ws://${window.location.host}/ws/${roomCode}/${playerId}`
+    const protocol = location.protocol === "https:" ? "wss:" : "ws:";
+    const url = `${protocol}//${window.location.host}/ws/${roomCode}/${playerId}`
     const socket = new WebSocket(url)
     ws.current = socket
 
@@ -49,7 +49,7 @@ export function useGameWS(roomCode: string | null, playerId: string | null) {
       }
     }
 
-    socket.onclose = (event) => {
+    socket.onclose = () => {
       if (ws.current === socket) ws.current = null
       useGameStore.getState().setWsConnected(false)
       if (!intentionalClose) {
