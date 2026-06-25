@@ -181,22 +181,22 @@ export default function Hand({
                   zIndex: isSelected || isDragging ? 50 : i,
                   // Ghost while dragging; selected lifts up; unplayable fades
                   opacity: isDragging ? 0.25 : !playable ? 0.35 : 1,
-                  transform: isDragging ? undefined : isSelected ? 'translateY(-18px)' : undefined,
-                  transition: isDragging ? 'none' : 'transform 0.15s ease-out, opacity 0.15s',
+                  // The card itself lifts when selected (WizardCard handles the transform + ring).
+                  transition: isDragging ? 'none' : 'opacity 0.15s',
                   // Prevent the browser from scrolling/selecting while dragging a playable card
                   touchAction: myTurn && playable ? 'none' : 'auto',
                 }}
                 onPointerDown={(e) => onPointerDown(e, card)}
               >
                 <div
-                  className={`rounded-lg ${isSelected && !isDragging ? 'ring-2 ring-purple-400' : ''}`}
-                  // The inner button shouldn't capture the pointer — the wrapper owns the gesture
+                  // The inner card shouldn't capture the pointer — the wrapper owns the gesture
                   style={{ pointerEvents: 'none' }}
                 >
                   <Card
                     card={card}
                     size="lg"
                     disabled={!myTurn || !playable}
+                    selected={isSelected && !isDragging}
                   />
                 </div>
               </div>
