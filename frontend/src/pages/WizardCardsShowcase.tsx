@@ -13,7 +13,7 @@ type HandSpread = 'Tight stack' | 'Natural fan' | 'Wide spread'
 const COLORS: WizardColor[] = ['dark', 'crimson', 'rose', 'blue']
 
 const META: Record<WizardColor, { name: string; swatch: string }> = {
-  dark:    { name: 'Onyx',    swatch: '#dee1ea' },
+  dark:    { name: 'Verdant', swatch: '#3fdd86' },
   crimson: { name: 'Scarlet', swatch: '#f4364a' },
   rose:    { name: 'Fuchsia', swatch: '#ff6ec2' },
   blue:    { name: 'Azure',   swatch: '#5a96ff' },

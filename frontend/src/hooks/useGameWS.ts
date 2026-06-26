@@ -183,9 +183,9 @@ function handleMessage(msg: WsMessage) {
         bids: Record<string, number>
         tricks_won: Record<string, number>
       }
-      // Snapshot current_round NOW — the next game_state for round N+1 will overwrite it
-      // and would make the overlay show "See Final Results" prematurely
+      // Snapshot current_round and dealer_seat NOW — next game_state will overwrite them
       const snappedRound = store.gameState?.current_round ?? 0
+      const snappedDealerSeat = store.gameState?.dealer_seat ?? 0
       const showResult = () => {
         store.setRoundResult({
           round_number: snappedRound,
@@ -193,6 +193,7 @@ function handleMessage(msg: WsMessage) {
           cumulative: p.cumulative_scores,
           bids: p.bids,
           tricks_won: p.tricks_won,
+          dealer_seat: snappedDealerSeat,
         })
         playSound('roundComplete')
         // Flush buffered state now that the overlay is covering the UI

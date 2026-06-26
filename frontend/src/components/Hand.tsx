@@ -7,6 +7,12 @@ interface HandProps {
   myTurn: boolean
   playableCards?: Set<string> | null
   onDragChange?: (isDragging: boolean, inPlayZone: boolean) => void
+  /** Felt layouts: drop the solid grey bar for a transparent fade so cards sit on the table. */
+  transparent?: boolean
+  /** When transparent, whether to draw the dark bottom fade. Off during bidding so cards stay bright. */
+  fade?: boolean
+  /** Arc fan layout — used by the mobile felt table. Replaces the horizontal scroll. */
+  fan?: boolean
 }
 
 interface DragState {
@@ -28,6 +34,9 @@ export default function Hand({
   myTurn,
   playableCards = null,
   onDragChange,
+  transparent = false,
+  fade = true,
+  fan = false,
 }: HandProps) {
   const [selected, setSelected] = useState<string | null>(null)
   const [drag, setDrag] = useState<DragState | null>(null)
@@ -154,9 +163,85 @@ export default function Hand({
     hint = 'Your hand'
   }
 
+  // ── Arc fan layout (mobile felt table) ──────────────────────────────────────
+  if (fan) {
+    const n = cards.length
+    const gapX = n <= 1 ? 0 : Math.min(50, Math.floor(280 / (n - 1)))
+    const step = n <= 6 ? 6 : 4
+    const DIP = 7
+
+    const dragGhost = drag?.moved && (
+      <div
+        className="fixed pointer-events-none"
+        style={{ left: drag.clientX - drag.cardW / 2, top: drag.clientY - drag.cardH / 2, zIndex: 200, transform: inPlayZone ? 'scale(1.12)' : 'scale(1)', transition: 'transform 0.1s ease-out' }}
+      >
+        <div className={inPlayZone ? 'ring-4 ring-green-400 rounded-xl shadow-2xl shadow-green-500/50' : 'shadow-xl'}>
+          <Card card={drag.card} size="lg" />
+        </div>
+      </div>
+    )
+
+    return (
+      <div style={{ position: 'relative', height: 182, flexShrink: 0, userSelect: 'none' }}>
+        {myTurn && (
+          <div style={{ position: 'absolute', left: '50%', bottom: 30, transform: 'translateX(-50%)', width: 330, height: 24, borderRadius: 200, animation: 'gtmTurnRing 2s ease-in-out infinite', pointerEvents: 'none', zIndex: 1 }} />
+        )}
+        <div style={{ position: 'absolute', left: '50%', bottom: 14, transform: 'translateX(-50%)', width: 360, height: 160 }}>
+          {cards.map((card, i) => {
+            const t = i - (n - 1) / 2
+            const baseTransform = `translateX(calc(-50% + ${(t * gapX).toFixed(1)}px)) translateY(${(Math.abs(t) * DIP).toFixed(1)}px) rotate(${(t * step).toFixed(1)}deg)`
+            const liftTransform = `translateX(calc(-50% + ${(t * gapX).toFixed(1)}px)) translateY(${(Math.abs(t) * DIP - 18).toFixed(1)}px) rotate(${(t * step).toFixed(1)}deg)`
+            const isDragging = drag?.card === card
+            const isSelected = selected === card
+            const playable = canPlay(card)
+            return (
+              <div
+                key={card}
+                ref={(el) => { cardElRefs.current[card] = el }}
+                style={{
+                  position: 'absolute', left: '50%', bottom: 0,
+                  transform: isSelected && !isDragging ? liftTransform : baseTransform,
+                  transformOrigin: '50% 100%',
+                  zIndex: isSelected || isDragging ? 50 : i + 1,
+                  opacity: isDragging ? 0.25 : 1,
+                  transition: isDragging ? 'none' : 'transform 0.15s ease-out',
+                  touchAction: myTurn && playable ? 'none' : 'auto',
+                }}
+                onPointerDown={(e) => onPointerDown(e, card)}
+              >
+                {myTurn && playable && !isDragging && (
+                  <div style={{ position: 'absolute', inset: -3, borderRadius: 13, animation: 'gtmPlayable 1.6s ease-in-out infinite', pointerEvents: 'none', zIndex: 2 }} />
+                )}
+                <div style={{ pointerEvents: 'none' }}>
+                  <Card card={card} size="lg" selected={isSelected && !isDragging} />
+                </div>
+                {myTurn && !playable && (
+                  <div style={{ position: 'absolute', inset: 0, borderRadius: 11, background: 'linear-gradient(180deg,rgba(6,14,10,0.32),rgba(6,14,10,0.5))', pointerEvents: 'none', zIndex: 3, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: 7 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', padding: '2px 6px', borderRadius: 999, background: 'rgba(0,0,0,0.62)', border: '1px solid rgba(255,255,255,0.16)' }}>
+                      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#d7e3da" strokeWidth="2.4"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3" strokeLinecap="round"/></svg>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+          {cards.length === 0 && (
+            <p style={{ position: 'absolute', left: '50%', bottom: 40, transform: 'translateX(-50%)', color: '#5f7f6c', fontSize: 14, whiteSpace: 'nowrap' }}>No cards in hand</p>
+          )}
+        </div>
+        <div style={{ position: 'absolute', left: '50%', bottom: 7, transform: 'translateX(-50%)', width: 128, height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.4)', zIndex: 40, pointerEvents: 'none' }} />
+        {dragGhost}
+      </div>
+    )
+  }
+
+  // ── Linear scroll layout (default) ───────────────────────────────────────────
   return (
-    <div className="bg-gray-800/90 border-t border-gray-700 pb-safe select-none">
-      <p className="text-gray-500 text-xs text-center pt-2 pb-1 px-4 min-h-[1.5rem]">
+    <div
+      className={`pb-safe select-none ${transparent ? '' : 'bg-gray-800/90 border-t border-gray-700'}`}
+      style={transparent && fade ? { background: 'linear-gradient(to top, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0))' } : undefined}
+    >
+      <p className={`text-xs text-center pt-2 pb-1 px-4 min-h-[1.5rem] ${transparent ? 'text-emerald-100/70' : 'text-gray-500'}`}>
         {hint}
       </p>
 
@@ -195,7 +280,9 @@ export default function Hand({
                   <Card
                     card={card}
                     size="lg"
-                    disabled={!myTurn || !playable}
+                    // Only grey out truly-unplayable cards during my play turn. When it's not my
+                    // turn (bidding / opponent's turn) cards stay bright, just non-interactive.
+                    disabled={myTurn && !playable}
                     selected={isSelected && !isDragging}
                   />
                 </div>

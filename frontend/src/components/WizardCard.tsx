@@ -25,7 +25,7 @@ interface Pal {
 }
 
 const PAL: Record<WizardColor, Pal> = {
-  dark:    {label:'Onyx',    bg1:'#34353f', bg2:'#0a0a0e', accent:'#dee1ea', accent2:'#9296a4', glow:'rgba(208,214,232,', mute1:'#4a4a54', mute2:'#1d1d24', maccent:'#bcbec8', hair:'#e6e9f4', hair2:'#a7accf', eye:'#b79bf2', skin:'#f4e8e2', outfit:'#1b1b27'},
+  dark:    {label:'Verdant', bg1:'#1f9b57', bg2:'#04210f', accent:'#b6ffd0', accent2:'#3fb070', glow:'rgba(80,224,142,', mute1:'#3f7a55', mute2:'#16301f', maccent:'#9fd6b3', hair:'#5fe39a', hair2:'#1f9b57', eye:'#7dffb0', skin:'#f4e8e2', outfit:'#0f3a22'},
   crimson: {label:'Scarlet', bg1:'#dc1830', bg2:'#4c0710', accent:'#ffd66b', accent2:'#d39b2e', glow:'rgba(248,76,86,',  mute1:'#ac3340', mute2:'#3c1419', maccent:'#e0a878', hair:'#f43a4e', hair2:'#aa1526', eye:'#ffd56b', skin:'#fce6dd', outfit:'#6a101c'},
   rose:    {label:'Fuchsia', bg1:'#fb52a8', bg2:'#7d1450', accent:'#fff2f9', accent2:'#ff8fc8', glow:'rgba(255,108,190,',mute1:'#c85e98', mute2:'#56243f', maccent:'#ffc2e0', hair:'#ff8ecb', hair2:'#e0529a', eye:'#ff5fa8', skin:'#fdeae3', outfit:'#a82069'},
   blue:    {label:'Azure',   bg1:'#3461f4', bg2:'#0f2270', accent:'#8ae3ff', accent2:'#4596e4', glow:'rgba(96,158,255,', mute1:'#4a62a0', mute2:'#1d2a4a', maccent:'#9cc4f0', hair:'#7ad6ff', hair2:'#2f7fd6', eye:'#5fe0ff', skin:'#f1ece7', outfit:'#12296e'},
@@ -149,7 +149,7 @@ function jesterSVG(key: WizardColor, p: Pal): string {
   const face = `<circle cx="60" cy="76" r="26" fill="${sk}"/>`
   const blush = `<ellipse cx="45" cy="85" rx="5" ry="3" fill="${ec}" opacity="0.32"/><ellipse cx="75" cy="85" rx="5" ry="3" fill="${ec}" opacity="0.32"/>`
   const body = `<path d="M38,100 Q60,110 82,100 L88,140 Q60,150 32,140 Z" fill="${c2}"/><path d="M36,102 Q60,112 84,102" stroke="${c1}" stroke-width="3" fill="none"/><circle cx="60" cy="126" r="4" fill="${ac}"/>`
-  let hat: string, eyes: string, mouth: string, extra = ''
+  let hat: string, eyes: string, mouth: string, extra: string
 
   if (key === 'dark') {            // sleepy / aloof
     hat = `<path d="M32,48 C24,20 18,10 10,6 C16,20 18,30 26,46 Z" fill="${c1}"/><circle cx="11" cy="6" r="5" fill="${ac}"/>
@@ -260,7 +260,9 @@ export default function WizardCard({
 
   function renderFace(): ReactNode {
     const w = 80 * s, hgt = 120 * s, r = 12 * s
-    const rankText = variant === 'wizard' ? 'W' : variant === 'jester' ? 'N' : String(rank ?? 13)
+    const RANK_DISPLAY: Record<string, string> = { A: '1', J: '11', Q: '12', K: '13' }
+    const rawRank = String(rank ?? 13)
+    const rankText = variant === 'wizard' ? 'W' : variant === 'jester' ? 'N' : (RANK_DISPLAY[rawRank] ?? rawRank)
 
     const glowOn = hoverOn || selOn
     const boxShadow = `0 ${(selOn ? 16 : hoverOn ? 12 : 8) * s}px ${(selOn ? 32 : hoverOn ? 27 : 18) * s}px rgba(0,0,0,0.55)`
@@ -324,9 +326,9 @@ export default function WizardCard({
     if (variant === 'number') {
       kids.push(h('div', { key: 'ctr', style: { position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 } },
         h('span', { style: { fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 56 * s, lineHeight: 1,
-          background: `linear-gradient(180deg,#ffffff 0%, ${p.accent} 46%, ${p.accent2} 100%)`,
-          WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent',
-          filter: `drop-shadow(0 2px 7px ${p.glow}0.6))` } as CSSProperties }, rankText)))
+          color: '#ffffff',
+          textShadow: `0 0 ${18 * s}px ${p.glow}0.8), 0 2px ${5 * s}px rgba(0,0,0,0.6)`,
+        } as CSSProperties }, rankText)))
     } else if (variant === 'wizard') {
       kids.push(h('div', { key: 'aura', style: { position: 'absolute', inset: -3 * s, borderRadius: r + 3, boxShadow: `0 0 ${20 * s}px ${p.glow}0.7), inset 0 0 ${14 * s}px ${p.glow}0.5)`, animation: 'wcAura 2.8s ease-in-out infinite', pointerEvents: 'none', zIndex: 1 } }))
       kids.push(h('div', { key: 'girl', style: { position: 'absolute', left: '8%', right: '8%', bottom: '-2%', top: '14%', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 2, animation: 'wcFloat 4s ease-in-out infinite' },

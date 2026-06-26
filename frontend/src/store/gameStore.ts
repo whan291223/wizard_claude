@@ -8,6 +8,7 @@ export interface RoundResult {
   cumulative: Record<string, number>
   bids: Record<string, number>
   tricks_won: Record<string, number>
+  dealer_seat?: number
 }
 
 export interface GameResult {

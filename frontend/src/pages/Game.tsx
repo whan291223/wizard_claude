@@ -2,15 +2,14 @@ import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useGameStore } from '../store/gameStore'
 import { useGameWS } from '../hooks/useGameWS'
-import Hand from '../components/Hand'
-import TrickArea from '../components/TrickArea'
-import Scoreboard from '../components/Scoreboard'
-import PlayerStrip from '../components/PlayerStrip'
-import Card from '../components/Card'
-import EmotePicker from '../components/EmotePicker'
-import RoundResult from '../components/RoundResult'
+import { useIsWide } from '../hooks/useMediaQuery'
 import GameOver from '../components/GameOver'
-import { playSound, isMuted, toggleMute } from '../utils/sound'
+import RoundResult from '../components/RoundResult'
+import TableLayout from '../components/table/TableLayout'
+import StackedLayout from '../components/table/StackedLayout'
+import type { GameViewModel } from '../components/table/viewModel'
+import { isMuted, toggleMute, playSound } from '../utils/sound'
+import { getTableTheme } from '../theme/tableTheme'
 import type { RoundResult as RoundResultData } from '../store/gameStore'
 import type { GameState, RoundState } from '../types/game'
 
@@ -44,11 +43,19 @@ function getPlayableCards(
 }
 
 const SUIT_DISPLAY: Record<string, string> = {
-  C: '♣ Clubs',
-  D: '♦ Diamonds',
-  H: '♥ Hearts',
-  S: '♠ Spades',
+  C: 'Green',
+  D: 'Pink',
+  H: 'Red',
+  S: 'Blue',
   none: 'None',
+}
+
+const SUIT_COLOR_HEX: Record<string, string> = {
+  C: '#3fdd86',
+  D: '#ff6ec2',
+  H: '#f4364a',
+  S: '#5a96ff',
+  none: '#c7d8cd',
 }
 
 export default function Game() {
@@ -164,7 +171,7 @@ export default function Game() {
   )
 }
 
-// ── Pure view ────────────────────────────────────────────────────────────────
+// ── Logic hub — builds the view-model, then picks a responsive layout ──────────
 
 interface GameViewProps {
   gameState: GameState
@@ -191,11 +198,11 @@ function GameView({
   roundHistory,
   suppressModals = false,
 }: GameViewProps) {
+  const isWide = useIsWide()
   const [dragActive, setDragActive] = useState(false)
   const [dragInZone, setDragInZone] = useState(false)
   const [bid, setBid] = useState(0)
-  const [secs, setSecs] = useState<number | null>(null)
-  const [emoteOpen, setEmoteOpen] = useState(false)
+  const [secs] = useState<number | null>(null)
   const [muted, setMuted] = useState(isMuted())
 
   // Refs keep callbacks/values fresh inside timer effects
@@ -211,7 +218,7 @@ function GameView({
     setDragInZone(inPlayZone)
   }
 
-  const myTurn = gameState.players[gameState.current_player_seat]?.id === playerId
+  const myTurn = gameState.players.find((p) => p.seat_order === gameState.current_player_seat)?.id === playerId
   const isBidding = gameState.current_phase === 'bidding'
   const isPlaying = gameState.current_phase === 'playing'
   const myBidPending = isBidding && roundState.bids[playerId ?? ''] == null
@@ -249,228 +256,54 @@ function GameView({
 
   // Reset bid value when my turn begins + play the "your turn" cue
   useEffect(() => {
-    if (!myTurn) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSecs(null)
-      return
-    }
+    if (!myTurn) return
     if (isBidding) {
       const initial = forbiddenBid === 0 ? 1 : 0
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setBid(initial)
       bidRef.current = initial
     }
     playSound('yourTurn')
-    // TODO: re-enable countdown timer for bid and play turns
-    // setSecs(COUNTDOWN_SECS)
   }, [myTurn]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // TODO: re-enable auto-submit at secs=0 for bidding and playing
-  // useEffect(() => {
-  //   if (secs === null) return
-  //   if (secs === 0) {
-  //     if (myBidPending && myTurn) {
-  //       onBidRef.current(bidRef.current)
-  //     } else if (myTurn && isPlaying && playableCards) {
-  //       const card = roundState.hand.find((c) => playableCards.has(c))
-  //       if (card) onPlayCardRef.current(card)
-  //     }
-  //     setSecs(null)
-  //     return
-  //   }
-  //   const t = setTimeout(() => setSecs((s) => (s !== null ? s - 1 : null)), 1000)
-  //   return () => clearTimeout(t)
-  // }, [secs]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function confirmBid() {
     onBid(bid)
-    setSecs(null)
   }
 
   const trumpDisplay = SUIT_DISPLAY[gameState.trump_suit ?? 'none'] ?? gameState.trump_suit ?? '—'
+  const trumpColor = SUIT_COLOR_HEX[gameState.trump_suit ?? 'none'] ?? '#c7d8cd'
 
-  return (
-    <div className="min-h-screen bg-gray-900 flex flex-col">
-      {/* Top bar */}
-      <div className="flex items-center justify-between px-3 py-2 bg-gray-800 border-b border-gray-700 pt-safe gap-2">
-        <div className="text-sm text-gray-400 shrink-0">
-          Round{' '}
-          <span className="text-white font-bold">{gameState.current_round}</span>
-          <span className="text-gray-600">/{gameState.total_rounds}</span>
-        </div>
+  const vm: GameViewModel = {
+    gameState,
+    roundState,
+    playerId,
+    theme: getTableTheme(),
+    myTurn,
+    isBidding,
+    isPlaying,
+    myBidPending,
+    playableCards,
+    bid,
+    setBid,
+    nextValid,
+    prevValid,
+    forbiddenBid,
+    confirmBid,
+    pastBids,
+    secs,
+    onPlayCard,
+    onEmote,
+    activeEmotes,
+    roundHistory,
+    muted,
+    toggleMuted: () => setMuted(toggleMute()),
+    suppressModals,
+    trumpDisplay,
+    trumpColor,
+    dragActive,
+    dragInZone,
+    onDragChange: handleDragChange,
+  }
 
-        {/* Trump: card image + suit name */}
-        <div className="flex items-center gap-1.5 min-w-0">
-          {gameState.trump_card && (
-            <div className="shrink-0">
-              <Card card={gameState.trump_card} size="sm" />
-            </div>
-          )}
-          <div className="text-xs text-center leading-tight min-w-0">
-            <div className="text-gray-500 truncate">Trump</div>
-            <div className="font-bold text-yellow-400 truncate">{trumpDisplay}</div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={() => setMuted(toggleMute())}
-            className="text-gray-400 hover:text-white transition-colors text-base leading-none"
-            aria-label={muted ? 'Unmute sounds' : 'Mute sounds'}
-            title={muted ? 'Unmute sounds' : 'Mute sounds'}
-          >
-            {muted ? '🔇' : '🔊'}
-          </button>
-          <Scoreboard
-            players={gameState.players}
-            tricksWon={roundState.tricks_won}
-            bids={roundState.bids}
-            roundHistory={roundHistory}
-          />
-        </div>
-      </div>
-
-      {/* Player strip */}
-      <PlayerStrip
-        players={gameState.players}
-        currentPlayerSeat={gameState.current_player_seat}
-        playerId={playerId}
-        bids={roundState.bids}
-        tricksWon={roundState.tricks_won}
-        phase={gameState.current_phase}
-        activeEmotes={activeEmotes}
-      />
-
-      {/* "Your turn" banner with countdown */}
-      {myTurn && isPlaying && (
-        <div className="flex justify-center px-4 pt-2">
-          <span className="animate-pulse bg-green-500/20 border border-green-500/40 text-green-400 text-xs font-semibold px-4 py-1.5 rounded-full tracking-wide">
-            Your turn to play a card
-            {secs !== null && <span className="ml-1.5 opacity-75">({secs}s)</span>}
-          </span>
-        </div>
-      )}
-
-      {/* Center area */}
-      <div
-        className={`flex-1 flex items-center justify-center p-4 min-h-0 rounded-lg transition-all duration-150 ${
-          dragActive && isPlaying
-            ? dragInZone
-              ? 'ring-2 ring-green-400 bg-green-500/10'
-              : 'ring-2 ring-dashed ring-gray-600 bg-gray-800/30'
-            : ''
-        }`}
-      >
-        {isBidding ? (
-          myBidPending && myTurn && !suppressModals ? (
-            /* ── Inline bid UI — hand stays visible below ── */
-            <div className="flex flex-col items-center gap-3 w-full max-w-xs">
-              <div className="text-center">
-                <p className="text-white font-semibold">
-                  Round {gameState.current_round} — Place your bid
-                </p>
-                <p className="text-gray-400 text-xs">How many tricks will you win? (0–{gameState.current_round})</p>
-              </div>
-
-              {pastBids.length > 0 && (
-                <div className="bg-gray-700/60 rounded-xl px-4 py-2 w-full space-y-1">
-                  <p className="text-gray-500 text-[10px] uppercase tracking-wider">Bids so far</p>
-                  {pastBids.map(({ nickname, bid: b }) => (
-                    <div key={nickname} className="flex justify-between items-center">
-                      <span className="text-gray-300 text-sm">{nickname}</span>
-                      <span className="text-white font-semibold text-sm">{b}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div className="flex items-center gap-5">
-                <button
-                  onClick={() => { if (prevValid !== null) setBid(prevValid) }}
-                  disabled={prevValid === null}
-                  className="w-11 h-11 rounded-full bg-gray-700 hover:bg-gray-600 disabled:opacity-30 text-white text-2xl font-bold transition-colors"
-                >
-                  −
-                </button>
-                <span className="text-5xl font-bold text-white w-14 text-center">{bid}</span>
-                <button
-                  onClick={() => { if (nextValid !== null) setBid(nextValid) }}
-                  disabled={nextValid === null}
-                  className="w-11 h-11 rounded-full bg-gray-700 hover:bg-gray-600 disabled:opacity-30 text-white text-2xl font-bold transition-colors"
-                >
-                  +
-                </button>
-              </div>
-
-              {forbiddenBid !== null && (
-                <p className="text-yellow-500 text-xs text-center">
-                  Bid <span className="font-bold">{forbiddenBid}</span> not allowed — total bids can't equal {gameState.current_round}
-                </p>
-              )}
-
-              <button
-                onClick={confirmBid}
-                disabled={bid === forbiddenBid}
-                className="w-full bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white font-semibold py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2"
-              >
-                <span>Confirm bid: {bid}</span>
-                {secs !== null && (
-                  <span className="text-xs bg-white/20 px-1.5 py-0.5 rounded">{secs}s</span>
-                )}
-              </button>
-            </div>
-          ) : (
-            <p className="text-gray-400 text-sm">Waiting for all players to bid…</p>
-          )
-        ) : (
-          <>
-            {dragActive && isPlaying && (
-              <p className={`absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 text-sm font-semibold pointer-events-none z-10 transition-colors ${dragInZone ? 'text-green-400' : 'text-gray-500'}`}>
-                {dragInZone ? 'Release to play!' : 'Drag here to play'}
-              </p>
-            )}
-            <TrickArea
-              trick={roundState.current_trick}
-              players={gameState.players}
-              lastWinner={roundState.last_trick_winner}
-              trickWinnerId={roundState.trick_winner_id}
-              currentPlayerName={
-                gameState.players[gameState.current_player_seat]?.nickname ?? null
-              }
-              trumpSuit={gameState.trump_suit}
-            />
-          </>
-        )}
-      </div>
-
-      {/* Emote button */}
-      <div className="flex justify-end px-3 pb-1">
-        <button
-          onClick={() => setEmoteOpen((o) => !o)}
-          className={`text-lg w-9 h-9 flex items-center justify-center rounded-full transition-colors ${
-            emoteOpen ? 'bg-purple-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-          }`}
-          aria-label="Send emote"
-        >
-          💬
-        </button>
-      </div>
-
-      {/* Hand — always visible, including during bidding */}
-      <Hand
-        cards={roundState.hand}
-        onPlay={onPlayCard}
-        myTurn={myTurn && isPlaying}
-        playableCards={playableCards}
-        onDragChange={handleDragChange}
-      />
-
-      {/* Emote picker panel */}
-      {emoteOpen && (
-        <EmotePicker
-          onSelect={onEmote}
-          onClose={() => setEmoteOpen(false)}
-        />
-      )}
-    </div>
-  )
+  return isWide ? <TableLayout vm={vm} /> : <StackedLayout vm={vm} />
 }
